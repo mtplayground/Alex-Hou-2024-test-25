@@ -78,3 +78,7 @@ Issue #14 adds the force-accumulation pass, combining pressure-gradient, viscosi
 Issue #15 adds semi-implicit Euler integration plus damped collisions against the axis-aligned simulation container and local obstacle boxes.
 
 Issue #16 adds a top-level `Simulation` class that initializes particle state, runs the density/force/integration pipeline per step, exposes position snapshots, and supports deterministic reset behavior.
+
+Issue #17 adds the worker-side message protocol plus a simulation host that processes control commands and transfers `Float32Array` position frames back to the main thread.
+
+Issue #18 adds a main-thread `SimulationClient` wrapper that spawns the worker, sends typed control messages, and exposes frame/error/ready subscriptions for incoming worker events.

@@ -12,4 +12,8 @@ export {
   type SimulationWorkerRequest,
   type SimulationWorkerResponse,
 } from './protocol'
+export {
+  SimulationClient,
+  type SimulationClientWorker,
+} from './SimulationClient'
 export { SimulationWorkerHost } from './simulationWorker'
