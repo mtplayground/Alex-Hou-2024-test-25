@@ -19,10 +19,18 @@ const DEFAULT_INITIAL_FLUID: InitialFluidBlock = {
   size: [1, 0.8, 1],
 }
 
+const DEFAULT_OBSTACLES: SceneObstacle[] = [
+  {
+    center: [2.25, 0.9, 2.25],
+    id: 'obstacle-default',
+    size: [0.8, 0.6, 0.8],
+  },
+]
+
 const DEFAULT_SCENE: Scene = {
   container: DEFAULT_CONTAINER,
   initialFluid: DEFAULT_INITIAL_FLUID,
-  obstacles: [],
+  obstacles: DEFAULT_OBSTACLES,
   simParams: defaultSimParams,
 }
 
