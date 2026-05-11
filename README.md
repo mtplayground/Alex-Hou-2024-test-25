@@ -9,6 +9,8 @@ Browser-based fluid playground scaffolded with Vite, React, and TypeScript.
 - TypeScript
 - Tailwind CSS
 - shadcn/ui
+- Three.js
+- Zustand
 - ESLint
 - Prettier
 
@@ -32,13 +34,15 @@ npm run typecheck
 npm run build
 ```
 
-## UI foundation
+## UI and render foundation
 
 - `tailwind.config.js`: Tailwind theme and content scanning
 - `postcss.config.js`: Tailwind + Autoprefixer pipeline
 - `components.json`: shadcn/ui project configuration
 - `src/components/ui`: shared UI primitives
 - `src/lib/utils.ts`: shared `cn` helper for class composition
+- `src/render/helloCube.ts`: Three.js smoke scene lifecycle
+- `src/store/helloCubeStore.ts`: Zustand store for the smoke controls
 
 ## Directory layout
 
@@ -48,4 +52,4 @@ npm run build
 - `src/store`: app state modules
 - `src/workers`: worker entrypoints and message plumbing
 
-Issue #3 adds Tailwind CSS, initializes the `shadcn/ui` file layout, and introduces shared Button, Slider, Input, and Card components.
+Issue #4 installs Three.js and Zustand, then verifies the integration with a rotating cube and axes-helper smoke scene.
