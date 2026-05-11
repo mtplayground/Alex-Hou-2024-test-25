@@ -110,3 +110,5 @@ Issue #30 adds validated scene JSON serialization plus a localStorage-backed pre
 Issue #31 adds a preset-manager UI for saving, loading, deleting, importing, and exporting scene JSON snapshots from the control rail.
 
 Issue #32 adds PNG frame capture for the viewport canvas, with start/stop controls that bundle captured frames into a downloadable zip archive.
+
+Issue #33 adds WebM viewport recording through `canvas.captureStream()` and `MediaRecorder`, with a configurable export framerate in the control bar.
