@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import {
   Card,
@@ -32,7 +32,9 @@ export function HelloCubeCanvas({
   onWebmCaptureChange,
   simulationSpeed = 1,
 }: HelloCubeCanvasProps) {
-  const containerRef = useRef<HTMLDivElement | null>(null)
+  const [containerNode, setContainerNode] = useState<HTMLDivElement | null>(
+    null,
+  )
   const controllerRef = useRef<HelloCubeController | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState<HelloCubeStats>({
@@ -53,17 +55,14 @@ export function HelloCubeCanvas({
   const initialFluid = scene.initialFluid
   const simParams = scene.simParams
 
-  const handleContainerRef = (node: HTMLDivElement | null) => {
-    if (node === containerRef.current) {
-      return
-    }
+  const handleContainerRef = useCallback((node: HTMLDivElement | null) => {
+    setContainerNode((currentNode) =>
+      currentNode === node ? currentNode : node,
+    )
+  }, [])
 
-    controllerRef.current?.dispose()
-    onControllerChange?.(null)
-    controllerRef.current = null
-    containerRef.current = node
-
-    if (!node) {
+  useEffect(() => {
+    if (!containerNode) {
       return
     }
 
@@ -71,7 +70,7 @@ export function HelloCubeCanvas({
       const initialState = useHelloCubeStore.getState()
       const sceneState = useSceneStore.getState().scene
 
-      controllerRef.current = createHelloCube(node, {
+      controllerRef.current = createHelloCube(containerNode, {
         containerSize: initialState.containerSize,
         emitter: sceneState.emitter,
         initialFluid: sceneState.initialFluid,
@@ -88,15 +87,29 @@ export function HelloCubeCanvas({
         visualizationMode: initialState.visualizationMode,
       })
       onControllerChange?.(controllerRef.current)
-      setError(null)
     } catch (caughtError) {
       const message =
         caughtError instanceof Error
           ? caughtError.message
           : 'Unknown WebGL initialization error.'
-      setError(message)
+      queueMicrotask(() => {
+        setError(message)
+      })
     }
-  }
+
+    return () => {
+      controllerRef.current?.dispose()
+      controllerRef.current = null
+      onControllerChange?.(null)
+    }
+  }, [
+    containerNode,
+    onControllerChange,
+    onPngCaptureChange,
+    onSimulationReadyChange,
+    onWebmCaptureChange,
+    simulationSpeed,
+  ])
 
   useEffect(() => {
     return () => {
@@ -155,24 +168,32 @@ export function HelloCubeCanvas({
       <CardContent className="p-0">
         <div
           className="relative aspect-[16/10] min-h-[320px] w-full bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.15),_transparent_40%),linear-gradient(180deg,_rgba(8,15,28,0.95),_rgba(2,6,23,1))]"
+          data-testid="viewport-stage"
           ref={handleContainerRef}
         >
           <div className="pointer-events-none absolute left-4 top-4 z-10 grid min-w-[220px] grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-slate-950/70 p-3 text-white shadow-2xl shadow-black/30 backdrop-blur-sm">
             <StatTile
               label="Render FPS"
+              testId="render-fps"
               value={stats.renderFps > 0 ? stats.renderFps.toFixed(1) : '0.0'}
             />
             <StatTile
               label="Step Rate"
+              testId="step-rate"
               value={
                 stats.stepRate > 0 ? `${stats.stepRate.toFixed(1)}/s` : '0.0/s'
               }
             />
             <StatTile
               label="Particles"
+              testId="particle-count"
               value={stats.particleCount.toString()}
             />
-            <StatTile label="Sim Time" value={`${stats.simTime.toFixed(2)}s`} />
+            <StatTile
+              label="Sim Time"
+              testId="sim-time"
+              value={`${stats.simTime.toFixed(2)}s`}
+            />
           </div>
         </div>
         {error ? (
@@ -188,13 +209,26 @@ export function HelloCubeCanvas({
   )
 }
 
-function StatTile({ label, value }: { label: string; value: string }) {
+function StatTile({
+  label,
+  testId,
+  value,
+}: {
+  label: string
+  testId: string
+  value: string
+}) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
       <div className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-slate-400">
         {label}
       </div>
-      <div className="mt-1 text-sm font-semibold text-slate-100">{value}</div>
+      <div
+        className="mt-1 text-sm font-semibold text-slate-100"
+        data-testid={`${testId}-value`}
+      >
+        {value}
+      </div>
     </div>
   )
 }
