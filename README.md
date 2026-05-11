@@ -84,3 +84,5 @@ Issue #17 adds the worker-side message protocol plus a simulation host that proc
 Issue #18 adds a main-thread `SimulationClient` wrapper that spawns the worker, sends typed control messages, and exposes frame/error/ready subscriptions for incoming worker events.
 
 Issue #19 connects those worker frames to the Three.js smoke scene, updating instanced particle geometry from transferred position buffers every render cycle.
+
+Issue #20 adds the first durable scene data model plus a dedicated Zustand store for container dimensions, obstacles, fluid source, and simulation parameters.

@@ -2,5 +2,7 @@ export const storeModuleSummary = {
   path: 'src/store',
   title: 'State layer',
   description:
-    'Zustand is now live for the Hello-Cube smoke controls, providing the state boundary for later scene and simulation stores.',
+    'Zustand now covers both the temporary Hello-Cube smoke controls and the first durable scene model/state boundary for later editor and simulation UI work.',
 }
+
+export { useSceneStore, type SceneStoreState } from './sceneStore'
