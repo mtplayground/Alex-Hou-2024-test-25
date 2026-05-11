@@ -66,3 +66,5 @@ npm run test:e2e
 Issue #9 adds shared ambient/directional lighting and a baseline particle material, exercised by an instanced-sphere preview inside the container scene.
 
 Issue #10 adds pure SPH smoothing-kernel functions for poly6, spiky gradient, and viscosity laplacian, with fixed-value unit coverage.
+
+Issue #11 adds a 3D spatial hash grid for insert/query and smoothing-radius neighbor search, with unit coverage for raw bucket queries and filtered neighbor lookup.
