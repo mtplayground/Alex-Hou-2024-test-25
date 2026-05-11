@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { createThreeViewport } from '@/render/threeViewport'
 
 interface HelloCubeState {
   rotationSpeed: number
@@ -15,17 +16,15 @@ export function createHelloCube(
   container: HTMLElement,
   initialState: HelloCubeState,
 ): HelloCubeController {
-  const renderer = new THREE.WebGLRenderer({
-    alpha: true,
-    antialias: true,
+  const viewport = createThreeViewport({
+    cameraPosition: [2.8, 2.4, 3.6],
+    container,
+    target: [0, 0, 0],
   })
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-  renderer.setClearAlpha(0)
-
-  const scene = new THREE.Scene()
-  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100)
-  camera.position.set(2.8, 2.4, 3.6)
-  camera.lookAt(0, 0, 0)
+  const { controls, scene } = viewport
+  controls.maxDistance = 8
+  controls.minDistance = 2
+  controls.enablePan = false
 
   const ambientLight = new THREE.AmbientLight(0xffffff, 1.6)
   const directionalLight = new THREE.DirectionalLight(0x7dd3fc, 2.6)
@@ -48,50 +47,18 @@ export function createHelloCube(
   axesHelper.visible = initialState.showAxes
   scene.add(axesHelper)
 
-  container.appendChild(renderer.domElement)
-
-  let disposed = false
-  let animationFrame = 0
   let rotationSpeed = initialState.rotationSpeed
-
-  const resize = () => {
-    const width = Math.max(container.clientWidth, 1)
-    const height = Math.max(container.clientHeight, 1)
-
-    camera.aspect = width / height
-    camera.updateProjectionMatrix()
-    renderer.setSize(width, height, false)
-  }
-
-  const resizeObserver = new ResizeObserver(() => {
-    resize()
-  })
-  resizeObserver.observe(container)
-  resize()
-
-  const renderFrame = () => {
-    if (disposed) {
-      return
-    }
-
+  viewport.start(() => {
     cube.rotation.y += rotationSpeed
     cube.rotation.x += rotationSpeed * 0.5
-    renderer.render(scene, camera)
-    animationFrame = window.requestAnimationFrame(renderFrame)
-  }
-
-  renderFrame()
+  })
 
   return {
     dispose: () => {
-      disposed = true
-      window.cancelAnimationFrame(animationFrame)
-      resizeObserver.disconnect()
       scene.remove(cube, axesHelper, ambientLight, directionalLight)
       cube.geometry.dispose()
       cube.material.dispose()
-      renderer.dispose()
-      renderer.domElement.remove()
+      viewport.dispose()
     },
     setAxesVisible: (showAxes) => {
       axesHelper.visible = showAxes

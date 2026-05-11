@@ -45,6 +45,7 @@ npm run test:e2e
 - `components.json`: shadcn/ui project configuration
 - `src/components/ui`: shared UI primitives
 - `src/lib/utils.ts`: shared `cn` helper for class composition
+- `src/render/threeViewport.ts`: renderer, scene, perspective camera, OrbitControls, resize, and frame loop lifecycle
 - `src/render/helloCube.ts`: Three.js smoke scene lifecycle
 - `src/store/helloCubeStore.ts`: Zustand store for the smoke controls
 - `vitest.config.ts`: unit test configuration
@@ -60,4 +61,4 @@ npm run test:e2e
 - `src/workers`: worker entrypoints and message plumbing
 - `e2e`: Playwright smoke tests
 
-Issue #5 adds Vitest, Playwright, and `.env.example` so the current homepage and smoke-scene defaults can be validated automatically.
+Issue #6 formalizes the Three.js viewport layer with a reusable renderer, scene, perspective camera, OrbitControls, resize handling, and requestAnimationFrame loop.
