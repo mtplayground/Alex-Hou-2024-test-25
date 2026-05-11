@@ -45,6 +45,8 @@ npm run test:e2e
 - `components.json`: shadcn/ui project configuration
 - `src/components/ui`: shared UI primitives
 - `src/lib/utils.ts`: shared `cn` helper for class composition
+- `src/render/lighting.ts`: shared ambient + directional scene lighting
+- `src/render/materials.ts`: shared cube and particle material factories
 - `src/render/threeViewport.ts`: renderer, scene, perspective camera, OrbitControls, resize, and frame loop lifecycle
 - `src/render/helloCube.ts`: Three.js smoke scene lifecycle
 - `src/store/helloCubeStore.ts`: Zustand store for the smoke controls
@@ -61,4 +63,4 @@ npm run test:e2e
 - `src/workers`: worker entrypoints and message plumbing
 - `e2e`: Playwright smoke tests
 
-Issue #8 adds a reactive wireframe simulation container whose dimensions come from Zustand state and update live in the Three.js scene.
+Issue #9 adds shared ambient/directional lighting and a baseline particle material, exercised by an instanced-sphere preview inside the container scene.

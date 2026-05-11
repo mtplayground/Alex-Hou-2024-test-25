@@ -67,7 +67,8 @@ export function HelloCubeCanvas() {
         <CardTitle className="text-white">Hello-Cube smoke test</CardTitle>
         <CardDescription>
           A minimal Three.js scene renders a rotating cube, XYZ axes, an XZ
-          grid, and a reactive simulation container wireframe.
+          grid, a reactive simulation container wireframe, and shared-material
+          particle preview spheres.
         </CardDescription>
       </CardHeader>
       <CardContent className="p-0">

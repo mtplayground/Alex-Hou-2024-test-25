@@ -65,8 +65,8 @@ export function AppShell() {
             <p className="max-w-2xl text-base leading-7 text-slate-300">
               This pass adds the first simulation boundary. The viewport now
               renders a wireframe container whose width, height, and depth come
-              from Zustand, so scene geometry reacts immediately to state
-              changes instead of being hardcoded.
+              from Zustand, while the lighting rig and preview materials are
+              shared render primitives instead of scene-local one-offs.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Button className="gap-2" onClick={reset}>
@@ -151,7 +151,9 @@ export function AppShell() {
                   A lit cube rotates in place with red, green, and blue XYZ axes
                   plus a grid projected on the XZ plane. Drag to orbit the
                   camera and use the mouse wheel to zoom while the scene
-                  continues to animate.
+                  continues to animate. A small instanced-sphere particle
+                  preview now shares the baseline material setup for later fluid
+                  rendering work.
                 </p>
                 <div className="mt-3 grid gap-1 text-xs uppercase tracking-[0.16em] text-slate-400">
                   <span>
