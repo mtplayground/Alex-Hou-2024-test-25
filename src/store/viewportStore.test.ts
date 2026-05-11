@@ -19,6 +19,13 @@ describe('useViewportStore', () => {
       iterations: 4,
       radius: 7,
     })
+    useViewportStore.getState().setSsfrAppearanceSettings({
+      absorptionStrength: 1.9,
+      fresnelPower: 6.2,
+      showThicknessDebug: true,
+      thicknessScale: 3.4,
+      waterColor: '#38bdf8',
+    })
     useViewportStore.getState().toggleHelpers()
 
     useViewportStore.getState().reset()
@@ -30,6 +37,13 @@ describe('useViewportStore', () => {
       width: 4.5,
     })
     expect(nextState.renderMode).toBe('fluid')
+    expect(nextState.ssfrAppearanceSettings).toEqual({
+      absorptionStrength: 1,
+      fresnelPower: 4.5,
+      showThicknessDebug: false,
+      thicknessScale: 2.2,
+      waterColor: '#0f4c72',
+    })
     expect(nextState.ssfrBlurSettings).toEqual({
       iterations: 2,
       radius: 4,

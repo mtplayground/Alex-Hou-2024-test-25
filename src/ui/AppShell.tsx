@@ -84,6 +84,34 @@ const SIM_PARAMETER_LIMITS = {
   },
 } as const
 
+const SSFR_APPEARANCE_LIMITS = {
+  absorptionStrength: {
+    max: 3,
+    min: 0,
+    step: 0.05,
+  },
+  blurIterations: {
+    max: 6,
+    min: 1,
+    step: 1,
+  },
+  blurRadius: {
+    max: 12,
+    min: 1,
+    step: 1,
+  },
+  fresnelPower: {
+    max: 8,
+    min: 0.5,
+    step: 0.1,
+  },
+  thicknessScale: {
+    max: 6,
+    min: 0.2,
+    step: 0.1,
+  },
+} as const
+
 const ONBOARDING_STORAGE_KEY = 'fluid-playground.onboarding-scene-v1'
 
 function MetricPill({ label, value }: { label: string; value: string }) {
@@ -274,9 +302,19 @@ function ControlPanelBody({
   const showHelpers = useViewportStore((state) => state.showHelpers)
   const renderMode = useViewportStore((state) => state.renderMode)
   const setRenderMode = useViewportStore((state) => state.setRenderMode)
+  const setSsfrAppearanceSettings = useViewportStore(
+    (state) => state.setSsfrAppearanceSettings,
+  )
+  const setSsfrBlurSettings = useViewportStore(
+    (state) => state.setSsfrBlurSettings,
+  )
   const setVisualizationMode = useViewportStore(
     (state) => state.setVisualizationMode,
   )
+  const ssfrAppearanceSettings = useViewportStore(
+    (state) => state.ssfrAppearanceSettings,
+  )
+  const ssfrBlurSettings = useViewportStore((state) => state.ssfrBlurSettings)
   const toggleHelpers = useViewportStore((state) => state.toggleHelpers)
   const visualizationMode = useViewportStore((state) => state.visualizationMode)
   const reset = useViewportStore((state) => state.reset)
@@ -548,6 +586,22 @@ function ControlPanelBody({
     applySceneSnapshot(scenePreset.scene)
     setShowOnboarding(false)
     setPresetStatus(`Loaded built-in scene "${scenePreset.name}".`)
+  }
+
+  const updateSsfrAppearance = (
+    patch: Partial<typeof ssfrAppearanceSettings>,
+  ) => {
+    setSsfrAppearanceSettings({
+      ...ssfrAppearanceSettings,
+      ...patch,
+    })
+  }
+
+  const updateSsfrBlur = (patch: Partial<typeof ssfrBlurSettings>) => {
+    setSsfrBlurSettings({
+      ...ssfrBlurSettings,
+      ...patch,
+    })
   }
 
   return (
@@ -1037,6 +1091,245 @@ function ControlPanelBody({
               frame, so both render modes update without restarting the
               simulation.
             </p>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="mb-4 flex items-center gap-2 text-sm font-medium text-white">
+              <Waves className="size-4 text-sky-300" />
+              Fluid appearance
+            </div>
+            <div className="space-y-5">
+              <label className="space-y-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  Water color
+                </span>
+                <div className="flex items-center gap-3">
+                  <Input
+                    className="h-11 w-16 cursor-pointer overflow-hidden border-white/10 bg-slate-950/70 p-1"
+                    onChange={(event) =>
+                      updateSsfrAppearance({
+                        waterColor: event.target.value,
+                      })
+                    }
+                    type="color"
+                    value={ssfrAppearanceSettings.waterColor}
+                  />
+                  <Input
+                    className="font-mono uppercase"
+                    onChange={(event) => {
+                      const nextValue = event.target.value
+
+                      if (/^#[0-9a-fA-F]{6}$/.test(nextValue)) {
+                        updateSsfrAppearance({
+                          waterColor: nextValue,
+                        })
+                      }
+                    }}
+                    value={ssfrAppearanceSettings.waterColor.toUpperCase()}
+                  />
+                </div>
+              </label>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm text-slate-300">
+                  <span>Absorption strength</span>
+                  <span>
+                    {ssfrAppearanceSettings.absorptionStrength.toFixed(2)}
+                  </span>
+                </div>
+                <Slider
+                  max={SSFR_APPEARANCE_LIMITS.absorptionStrength.max}
+                  min={SSFR_APPEARANCE_LIMITS.absorptionStrength.min}
+                  onValueChange={(value) => {
+                    const nextValue = value[0]
+
+                    if (nextValue === undefined) {
+                      return
+                    }
+
+                    updateSsfrAppearance({
+                      absorptionStrength: nextValue,
+                    })
+                  }}
+                  step={SSFR_APPEARANCE_LIMITS.absorptionStrength.step}
+                  value={[ssfrAppearanceSettings.absorptionStrength]}
+                />
+                <NumericInput
+                  label="Absorption"
+                  min={SSFR_APPEARANCE_LIMITS.absorptionStrength.min}
+                  onChange={(value) =>
+                    updateSsfrAppearance({
+                      absorptionStrength: Math.min(
+                        SSFR_APPEARANCE_LIMITS.absorptionStrength.max,
+                        Math.max(
+                          SSFR_APPEARANCE_LIMITS.absorptionStrength.min,
+                          value,
+                        ),
+                      ),
+                    })
+                  }
+                  step={SSFR_APPEARANCE_LIMITS.absorptionStrength.step}
+                  value={ssfrAppearanceSettings.absorptionStrength}
+                />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm text-slate-300">
+                  <span>Thickness scale</span>
+                  <span>
+                    {ssfrAppearanceSettings.thicknessScale.toFixed(1)}
+                  </span>
+                </div>
+                <Slider
+                  max={SSFR_APPEARANCE_LIMITS.thicknessScale.max}
+                  min={SSFR_APPEARANCE_LIMITS.thicknessScale.min}
+                  onValueChange={(value) => {
+                    const nextValue = value[0]
+
+                    if (nextValue === undefined) {
+                      return
+                    }
+
+                    updateSsfrAppearance({
+                      thicknessScale: nextValue,
+                    })
+                  }}
+                  step={SSFR_APPEARANCE_LIMITS.thicknessScale.step}
+                  value={[ssfrAppearanceSettings.thicknessScale]}
+                />
+                <NumericInput
+                  label="Thickness"
+                  min={SSFR_APPEARANCE_LIMITS.thicknessScale.min}
+                  onChange={(value) =>
+                    updateSsfrAppearance({
+                      thicknessScale: Math.min(
+                        SSFR_APPEARANCE_LIMITS.thicknessScale.max,
+                        Math.max(
+                          SSFR_APPEARANCE_LIMITS.thicknessScale.min,
+                          value,
+                        ),
+                      ),
+                    })
+                  }
+                  step={SSFR_APPEARANCE_LIMITS.thicknessScale.step}
+                  value={ssfrAppearanceSettings.thicknessScale}
+                />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm text-slate-300">
+                  <span>Fresnel power</span>
+                  <span>{ssfrAppearanceSettings.fresnelPower.toFixed(1)}</span>
+                </div>
+                <Slider
+                  max={SSFR_APPEARANCE_LIMITS.fresnelPower.max}
+                  min={SSFR_APPEARANCE_LIMITS.fresnelPower.min}
+                  onValueChange={(value) => {
+                    const nextValue = value[0]
+
+                    if (nextValue === undefined) {
+                      return
+                    }
+
+                    updateSsfrAppearance({
+                      fresnelPower: nextValue,
+                    })
+                  }}
+                  step={SSFR_APPEARANCE_LIMITS.fresnelPower.step}
+                  value={[ssfrAppearanceSettings.fresnelPower]}
+                />
+                <NumericInput
+                  label="Fresnel"
+                  min={SSFR_APPEARANCE_LIMITS.fresnelPower.min}
+                  onChange={(value) =>
+                    updateSsfrAppearance({
+                      fresnelPower: Math.min(
+                        SSFR_APPEARANCE_LIMITS.fresnelPower.max,
+                        Math.max(
+                          SSFR_APPEARANCE_LIMITS.fresnelPower.min,
+                          value,
+                        ),
+                      ),
+                    })
+                  }
+                  step={SSFR_APPEARANCE_LIMITS.fresnelPower.step}
+                  value={ssfrAppearanceSettings.fresnelPower}
+                />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm text-slate-300">
+                  <span>Blur radius</span>
+                  <span>{ssfrBlurSettings.radius}</span>
+                </div>
+                <Slider
+                  max={SSFR_APPEARANCE_LIMITS.blurRadius.max}
+                  min={SSFR_APPEARANCE_LIMITS.blurRadius.min}
+                  onValueChange={(value) => {
+                    const nextValue = value[0]
+
+                    if (nextValue === undefined) {
+                      return
+                    }
+
+                    updateSsfrBlur({
+                      radius: Math.round(nextValue),
+                    })
+                  }}
+                  step={SSFR_APPEARANCE_LIMITS.blurRadius.step}
+                  value={[ssfrBlurSettings.radius]}
+                />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm text-slate-300">
+                  <span>Blur iterations</span>
+                  <span>{ssfrBlurSettings.iterations}</span>
+                </div>
+                <Slider
+                  max={SSFR_APPEARANCE_LIMITS.blurIterations.max}
+                  min={SSFR_APPEARANCE_LIMITS.blurIterations.min}
+                  onValueChange={(value) => {
+                    const nextValue = value[0]
+
+                    if (nextValue === undefined) {
+                      return
+                    }
+
+                    updateSsfrBlur({
+                      iterations: Math.round(nextValue),
+                    })
+                  }}
+                  step={SSFR_APPEARANCE_LIMITS.blurIterations.step}
+                  value={[ssfrBlurSettings.iterations]}
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+                <div>
+                  <div className="text-sm font-medium text-white">
+                    Thickness debug view
+                  </div>
+                  <p className="text-xs leading-5 text-slate-400">
+                    Swap the fluid composite for a thickness heat view to tune
+                    absorption and blur values.
+                  </p>
+                </div>
+                <Button
+                  onClick={() =>
+                    updateSsfrAppearance({
+                      showThicknessDebug:
+                        !ssfrAppearanceSettings.showThicknessDebug,
+                    })
+                  }
+                  variant="secondary"
+                >
+                  {ssfrAppearanceSettings.showThicknessDebug
+                    ? 'Disable debug'
+                    : 'Enable debug'}
+                </Button>
+              </div>
+            </div>
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
