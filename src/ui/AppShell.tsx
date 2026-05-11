@@ -1,24 +1,34 @@
 import type { ChangeEvent } from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Boxes,
   ChevronLeft,
   Cuboid,
+  Download,
+  FolderOpen,
   Gauge,
   PanelLeft,
   Pause,
   Play,
   Plus,
   RotateCw,
+  Save,
   Sparkles,
   StepForward,
   Trash2,
+  Upload,
   Waves,
 } from 'lucide-react'
 import { appDefaults } from '@/config/env'
 import { renderModuleSummary } from '@/render'
 import { simulationModuleSummary } from '@/sim'
-import { storeModuleSummary, useSceneStore } from '@/store'
+import {
+  deserializeScene,
+  LocalStorageScenePresetManager,
+  serializeScene,
+  storeModuleSummary,
+  useSceneStore,
+} from '@/store'
 import { type ContainerSize, useHelloCubeStore } from '@/store/helloCubeStore'
 import { cn } from '@/lib/utils'
 import { workerModuleSummary } from '@/workers'
@@ -105,6 +115,16 @@ function axisIndex(axis: AxisKey): 0 | 1 | 2 {
 
 function clampPositive(value: number, fallback: number): number {
   return Number.isFinite(value) && value > 0 ? value : fallback
+}
+
+function formatPresetTimestamp(timestamp: string): string {
+  const date = new Date(timestamp)
+
+  if (Number.isNaN(date.getTime())) {
+    return timestamp
+  }
+
+  return date.toLocaleString()
 }
 
 function NumericInput({
@@ -224,15 +244,38 @@ function ControlPanelBody({
   const addObstacle = useSceneStore((state) => state.addObstacle)
   const removeObstacle = useSceneStore((state) => state.removeObstacle)
   const resetScene = useSceneStore((state) => state.resetScene)
+  const replaceScene = useSceneStore((state) => state.replaceScene)
   const setEmitter = useSceneStore((state) => state.setEmitter)
   const setInitialFluid = useSceneStore((state) => state.setInitialFluid)
   const setSceneContainer = useSceneStore((state) => state.setContainer)
   const updateSimParams = useSceneStore((state) => state.updateSimParams)
   const updateObstacle = useSceneStore((state) => state.updateObstacle)
+  const presetManager = useMemo(() => new LocalStorageScenePresetManager(), [])
+  const [presetName, setPresetName] = useState('')
   const [particleCountDraft, setParticleCountDraft] = useState(
     scene.emitter?.particleCap ?? appDefaults.defaultParticleCount,
   )
+  const [presetStatus, setPresetStatus] = useState<string | null>(null)
+  const [presets, setPresets] = useState(() => {
+    try {
+      return presetManager.listPresets()
+    } catch {
+      return []
+    }
+  })
   const particleCountValue = scene.emitter?.particleCap ?? particleCountDraft
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const syncPresets = () => {
+    const nextPresets = presetManager.listPresets()
+    setPresets(nextPresets)
+    return nextPresets
+  }
+
+  const applySceneSnapshot = (nextScene: typeof scene) => {
+    replaceScene(nextScene)
+    syncViewportContainer(nextScene.container)
+  }
 
   const updateContainerDimension =
     (dimension: keyof ContainerSize) =>
@@ -328,6 +371,96 @@ function ControlPanelBody({
       ...scene.emitter,
       [vectorKey]: nextVector,
     })
+  }
+
+  const handleSavePreset = () => {
+    try {
+      const savedPreset = presetManager.savePreset(presetName, scene)
+      syncPresets()
+      setPresetName(savedPreset.name)
+      setPresetStatus(`Saved preset "${savedPreset.name}".`)
+    } catch (error) {
+      setPresetStatus(
+        error instanceof Error ? error.message : 'Preset save failed.',
+      )
+    }
+  }
+
+  const handleLoadPreset = (name: string) => {
+    try {
+      const nextScene = presetManager.loadPreset(name)
+      applySceneSnapshot(nextScene)
+      setPresetName(name)
+      setPresetStatus(`Loaded preset "${name}".`)
+    } catch (error) {
+      setPresetStatus(
+        error instanceof Error ? error.message : 'Preset load failed.',
+      )
+    }
+  }
+
+  const handleDeletePreset = (name: string) => {
+    try {
+      const deleted = presetManager.deletePreset(name)
+      syncPresets()
+      setPresetStatus(
+        deleted
+          ? `Deleted preset "${name}".`
+          : `Preset "${name}" was not found.`,
+      )
+    } catch (error) {
+      setPresetStatus(
+        error instanceof Error ? error.message : 'Preset delete failed.',
+      )
+    }
+  }
+
+  const handleExportScene = () => {
+    try {
+      const serializedScene = serializeScene(scene)
+      const blob = new Blob([serializedScene], {
+        type: 'application/json',
+      })
+      const objectUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      const exportName = presetName.trim() || 'scene-preset'
+      link.href = objectUrl
+      link.download = `${exportName}.json`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(objectUrl)
+      setPresetStatus(`Exported "${exportName}.json".`)
+    } catch (error) {
+      setPresetStatus(
+        error instanceof Error ? error.message : 'Scene export failed.',
+      )
+    }
+  }
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleImportFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+
+    if (!file) {
+      return
+    }
+
+    try {
+      const raw = await file.text()
+      const importedScene = deserializeScene(raw)
+      applySceneSnapshot(importedScene)
+      setPresetStatus(`Imported scene from "${file.name}".`)
+    } catch (error) {
+      setPresetStatus(
+        error instanceof Error ? error.message : 'Scene import failed.',
+      )
+    } finally {
+      event.target.value = ''
+    }
   }
 
   return (
@@ -754,6 +887,109 @@ function ControlPanelBody({
               frame, so mode switches update immediately without restarting the
               simulation.
             </p>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="mb-4 flex items-center gap-2 text-sm font-medium text-white">
+              <FolderOpen className="size-4 text-sky-300" />
+              Preset manager
+            </div>
+            <div className="space-y-3">
+              <label className="space-y-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  Save current scene as
+                </span>
+                <Input
+                  onChange={(event) => setPresetName(event.target.value)}
+                  placeholder="Preset name"
+                  value={presetName}
+                />
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <Button className="gap-2" onClick={handleSavePreset}>
+                  Save preset
+                  <Save className="size-4" />
+                </Button>
+                <Button
+                  className="gap-2"
+                  onClick={handleExportScene}
+                  variant="secondary"
+                >
+                  Export JSON
+                  <Download className="size-4" />
+                </Button>
+                <Button
+                  className="gap-2"
+                  onClick={handleImportClick}
+                  variant="secondary"
+                >
+                  Import JSON
+                  <Upload className="size-4" />
+                </Button>
+                <input
+                  accept="application/json"
+                  className="hidden"
+                  onChange={(event) => {
+                    void handleImportFile(event)
+                  }}
+                  ref={fileInputRef}
+                  type="file"
+                />
+              </div>
+              {presetStatus ? (
+                <p className="text-xs leading-5 text-slate-400">
+                  {presetStatus}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                Saved presets
+              </div>
+              {presets.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-white/10 bg-slate-950/40 px-3 py-4 text-sm text-slate-400">
+                  No saved presets yet. Save the current scene or import a JSON
+                  snapshot to get started.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {presets.map((preset) => (
+                    <div
+                      className="rounded-xl border border-white/10 bg-slate-950/40 p-3"
+                      key={preset.name}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-semibold text-slate-100">
+                            {preset.name}
+                          </div>
+                          <div className="mt-1 text-xs text-slate-400">
+                            Updated {formatPresetTimestamp(preset.updatedAt)}
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 gap-2">
+                          <Button
+                            onClick={() => handleLoadPreset(preset.name)}
+                            size="sm"
+                            variant="secondary"
+                          >
+                            Load
+                          </Button>
+                          <Button
+                            onClick={() => handleDeletePreset(preset.name)}
+                            size="sm"
+                            variant="secondary"
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
