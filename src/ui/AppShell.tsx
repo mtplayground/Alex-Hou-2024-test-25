@@ -1,13 +1,16 @@
 import type { ChangeEvent } from 'react'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Boxes,
   ChevronLeft,
   Cuboid,
   Gauge,
   PanelLeft,
+  Pause,
+  Play,
   RotateCw,
   Sparkles,
+  StepForward,
 } from 'lucide-react'
 import { appDefaults } from '@/config/env'
 import { renderModuleSummary } from '@/render'
@@ -27,6 +30,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Slider } from '@/components/ui/slider'
 import { HelloCubeCanvas } from '@/ui/HelloCubeCanvas'
+import type { HelloCubeController } from '@/render/helloCube'
 
 const sections = [
   simulationModuleSummary,
@@ -70,7 +74,27 @@ function ModuleSummaryCards() {
   )
 }
 
-function ControlPanelBody() {
+interface ControlPanelBodyProps {
+  hasSimulationController: boolean
+  onPauseSimulation: () => void
+  onPlaySimulation: () => void
+  onResetSimulation: () => void
+  onStepSimulation: () => void
+  onSimulationSpeedChange: (value: number) => void
+  simulationRunning: boolean
+  simulationSpeed: number
+}
+
+function ControlPanelBody({
+  hasSimulationController,
+  onPauseSimulation,
+  onPlaySimulation,
+  onResetSimulation,
+  onStepSimulation,
+  onSimulationSpeedChange,
+  simulationRunning,
+  simulationSpeed,
+}: ControlPanelBodyProps) {
   const containerSize = useHelloCubeStore((state) => state.containerSize)
   const rotationSpeed = useHelloCubeStore((state) => state.rotationSpeed)
   const showHelpers = useHelloCubeStore((state) => state.showHelpers)
@@ -122,6 +146,73 @@ function ControlPanelBody() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5 p-5">
+          <div className="rounded-2xl border border-sky-400/20 bg-sky-400/5 p-4">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-white">
+                <Play className="size-4 text-sky-300" />
+                Simulation control bar
+              </div>
+              <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-slate-200">
+                {simulationRunning ? 'Running' : 'Paused'}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                disabled={!hasSimulationController}
+                onClick={
+                  simulationRunning ? onPauseSimulation : onPlaySimulation
+                }
+                variant={simulationRunning ? 'secondary' : 'default'}
+              >
+                {simulationRunning ? (
+                  <>
+                    Pause
+                    <Pause className="size-4" />
+                  </>
+                ) : (
+                  <>
+                    Play
+                    <Play className="size-4" />
+                  </>
+                )}
+              </Button>
+              <Button
+                disabled={!hasSimulationController || simulationRunning}
+                onClick={onStepSimulation}
+                variant="secondary"
+              >
+                Step
+                <StepForward className="size-4" />
+              </Button>
+              <Button
+                disabled={!hasSimulationController}
+                onClick={onResetSimulation}
+                variant="secondary"
+              >
+                Reset sim
+                <RotateCw className="size-4" />
+              </Button>
+            </div>
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center justify-between text-sm text-slate-300">
+                <span>Simulation speed</span>
+                <span>{simulationSpeed.toFixed(2)}x</span>
+              </div>
+              <Slider
+                max={3}
+                min={0.25}
+                onValueChange={(value) =>
+                  onSimulationSpeedChange(value[0] ?? 1)
+                }
+                step={0.05}
+                value={[simulationSpeed]}
+              />
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                Shortcuts: Space play/pause, R reset
+              </p>
+            </div>
+          </div>
+
           <div className="flex flex-wrap gap-2">
             <Button className="gap-2" onClick={reset}>
               Reset viewport
@@ -134,7 +225,7 @@ function ControlPanelBody() {
 
           <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
             <div className="flex items-center justify-between text-sm text-slate-300">
-              <span>Rotation speed</span>
+              <span>Viewport rotation</span>
               <span>{rotationSpeed.toFixed(3)} rad / frame</span>
             </div>
             <Slider
@@ -225,8 +316,67 @@ function ControlPanelBody() {
 
 export function AppShell() {
   const [panelOpen, setPanelOpen] = useState(true)
+  const [simulationController, setSimulationController] =
+    useState<HelloCubeController | null>(null)
+  const [simulationRunning, setSimulationRunning] = useState(true)
+  const [simulationSpeed, setSimulationSpeed] = useState(1)
   const scene = useSceneStore((state) => state.scene)
   const showHelpers = useHelloCubeStore((state) => state.showHelpers)
+  const hasSimulationController = simulationController !== null
+
+  const handleControllerChange = (controller: HelloCubeController | null) => {
+    setSimulationController(controller)
+
+    if (controller === null) {
+      setSimulationRunning(false)
+    }
+  }
+
+  const controlActions = useMemo(
+    () => ({
+      pause: () => simulationController?.pauseSimulation(),
+      play: () => simulationController?.playSimulation(),
+      reset: () => simulationController?.resetSimulation(),
+      step: () => simulationController?.stepSimulation(),
+    }),
+    [simulationController],
+  )
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target
+
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target instanceof HTMLButtonElement ||
+        (target instanceof HTMLElement && target.isContentEditable)
+      ) {
+        return
+      }
+
+      if (event.code === 'Space') {
+        event.preventDefault()
+
+        if (simulationRunning) {
+          controlActions.pause()
+        } else {
+          controlActions.play()
+        }
+      }
+
+      if (event.key.toLowerCase() === 'r') {
+        event.preventDefault()
+        controlActions.reset()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [controlActions, simulationRunning])
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.18),_transparent_24%),radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.14),_transparent_28%),linear-gradient(180deg,_#07111f,_#020617_62%)] text-white">
@@ -281,6 +431,10 @@ export function AppShell() {
                 value={showHelpers ? 'Visible' : 'Hidden'}
               />
               <MetricPill
+                label="Simulation"
+                value={simulationRunning ? 'Running' : 'Paused'}
+              />
+              <MetricPill
                 label="Layout"
                 value={panelOpen ? 'Canvas + rail' : 'Canvas focus'}
               />
@@ -299,14 +453,27 @@ export function AppShell() {
           >
             <section className="min-w-0">
               <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-2 shadow-2xl shadow-black/20">
-                <HelloCubeCanvas />
+                <HelloCubeCanvas
+                  onControllerChange={handleControllerChange}
+                  onSimulationReadyChange={setSimulationRunning}
+                  simulationSpeed={simulationSpeed}
+                />
               </div>
             </section>
 
             {panelOpen ? (
               <aside className="hidden min-h-0 lg:block">
                 <div className="h-full max-h-[calc(100vh-10rem)] overflow-y-auto rounded-[1.75rem] border border-white/10 bg-slate-950/55 p-3 shadow-2xl shadow-black/20 backdrop-blur-xl">
-                  <ControlPanelBody />
+                  <ControlPanelBody
+                    hasSimulationController={hasSimulationController}
+                    onPauseSimulation={controlActions.pause}
+                    onPlaySimulation={controlActions.play}
+                    onResetSimulation={controlActions.reset}
+                    onSimulationSpeedChange={setSimulationSpeed}
+                    onStepSimulation={controlActions.step}
+                    simulationRunning={simulationRunning}
+                    simulationSpeed={simulationSpeed}
+                  />
                 </div>
               </aside>
             ) : null}
@@ -328,7 +495,16 @@ export function AppShell() {
                     <ChevronLeft className="size-4" />
                   </Button>
                 </div>
-                <ControlPanelBody />
+                <ControlPanelBody
+                  hasSimulationController={hasSimulationController}
+                  onPauseSimulation={controlActions.pause}
+                  onPlaySimulation={controlActions.play}
+                  onResetSimulation={controlActions.reset}
+                  onSimulationSpeedChange={setSimulationSpeed}
+                  onStepSimulation={controlActions.step}
+                  simulationRunning={simulationRunning}
+                  simulationSpeed={simulationSpeed}
+                />
               </div>
             </div>
           ) : null}

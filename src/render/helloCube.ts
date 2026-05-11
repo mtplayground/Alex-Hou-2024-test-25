@@ -26,19 +26,26 @@ interface HelloCubeState {
   initialFluid: InitialFluidBlock | undefined
   obstacles: SceneObstacle[]
   onSimulationError?: (message: string) => void
+  onSimulationReadyChange: ((running: boolean) => void) | undefined
   rotationSpeed: number
   simParams: SimParams
+  simulationSpeed: number
   showHelpers: boolean
 }
 
 export interface HelloCubeController {
   dispose: () => void
+  pauseSimulation: () => void
+  playSimulation: () => void
+  resetSimulation: () => void
   setContainerSize: (containerSize: ContainerSize) => void
   setEmitter: (emitter: SceneEmitter | undefined) => void
   setHelpersVisible: (showHelpers: boolean) => void
   setInitialFluid: (initialFluid: InitialFluidBlock | undefined) => void
   setObstacles: (obstacles: SceneObstacle[]) => void
   setRotationSpeed: (rotationSpeed: number) => void
+  setSimulationSpeed: (simulationSpeed: number) => void
+  stepSimulation: () => void
 }
 
 interface SimulationSeed {
@@ -194,6 +201,8 @@ export function createHelloCube(
   let activeInitialFluid = initialState.initialFluid
   let activeObstacles = initialState.obstacles
   const activeSimParams = initialState.simParams
+  let simulationRunning = false
+  let simulationSpeed = initialState.simulationSpeed
   let simulationSeed = buildSimulationSeed(
     activeContainerSize,
     activeEmitter,
@@ -263,12 +272,18 @@ export function createHelloCube(
     )
   }
 
+  const simulationStepDt = () => (1 / 60) * simulationSpeed
+
   const simulationClient = new SimulationClient()
   const unsubscribeFrames = simulationClient.subscribeToFrames((positions) => {
     updateParticleInstances(particlePreview, positions, activeContainerSize)
   })
   const unsubscribeErrors = simulationClient.subscribeToErrors((message) => {
     initialState.onSimulationError?.(message)
+  })
+  const unsubscribeReady = simulationClient.subscribeToReady((payload) => {
+    simulationRunning = payload.running
+    initialState.onSimulationReadyChange?.(payload.running)
   })
   initializeSimulationClient(
     simulationClient,
@@ -303,6 +318,7 @@ export function createHelloCube(
       )
       unsubscribeFrames()
       unsubscribeErrors()
+      unsubscribeReady()
       simulationClient.destroy()
       lighting.dispose()
       cube.geometry.dispose()
@@ -317,6 +333,18 @@ export function createHelloCube(
       disposeMaterial(particleMaterial)
       disposeMaterial(obstacleMaterial)
       viewport.dispose()
+    },
+    pauseSimulation: () => {
+      simulationClient.pause()
+    },
+    playSimulation: () => {
+      simulationClient.start(simulationStepDt())
+    },
+    resetSimulation: () => {
+      simulationClient.reset()
+    },
+    stepSimulation: () => {
+      simulationClient.step(simulationStepDt())
     },
     setContainerSize: (nextContainerSize) => {
       activeContainerSize = nextContainerSize
@@ -383,6 +411,13 @@ export function createHelloCube(
     },
     setRotationSpeed: (nextRotationSpeed) => {
       rotationSpeed = nextRotationSpeed
+    },
+    setSimulationSpeed: (nextSimulationSpeed) => {
+      simulationSpeed = nextSimulationSpeed
+
+      if (simulationRunning) {
+        simulationClient.start(simulationStepDt())
+      }
     },
   }
 }
