@@ -70,3 +70,5 @@ Issue #10 adds pure SPH smoothing-kernel functions for poly6, spiky gradient, an
 Issue #11 adds a 3D spatial hash grid for insert/query and smoothing-radius neighbor search, with unit coverage for raw bucket queries and filtered neighbor lookup.
 
 Issue #12 adds a structure-of-arrays particle buffer built on `Float32Array` plus a shared `SimParams` baseline for upcoming density, pressure, and integration passes.
+
+Issue #13 adds the first density-and-pressure computation pass, using poly6 kernel sums over hashed neighbors and writing equation-of-state pressures back into the shared particle buffers.
