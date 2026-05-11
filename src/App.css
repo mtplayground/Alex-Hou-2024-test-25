@@ -1,0 +1,155 @@
+.app-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, rgba(82, 158, 255, 0.18), transparent 35%),
+    linear-gradient(180deg, #06121f 0%, #0b1727 100%);
+  color: #dfe7f3;
+}
+
+.app-shell__content {
+  width: min(1120px, calc(100% - 3rem));
+  margin: 0 auto;
+  padding: 4rem 0 5rem;
+}
+
+.app-shell__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8bc4ff;
+}
+
+.app-shell__eyebrow::before {
+  content: '';
+  width: 2.5rem;
+  height: 1px;
+  background: currentColor;
+}
+
+.app-shell__hero {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.9fr);
+  align-items: start;
+}
+
+.app-shell__headline {
+  margin: 0;
+  font-size: clamp(2.75rem, 7vw, 5rem);
+  line-height: 0.94;
+  letter-spacing: -0.05em;
+  color: #f5f8ff;
+}
+
+.app-shell__lede {
+  max-width: 40rem;
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: #b4c4da;
+}
+
+.app-shell__panel,
+.app-shell__card {
+  background: rgba(8, 19, 35, 0.72);
+  border: 1px solid rgba(139, 196, 255, 0.18);
+  border-radius: 1.25rem;
+  box-shadow: 0 24px 60px rgba(1, 7, 18, 0.35);
+  backdrop-filter: blur(14px);
+}
+
+.app-shell__panel {
+  padding: 1.5rem;
+}
+
+.app-shell__panel h2,
+.app-shell__card h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  color: #f5f8ff;
+}
+
+.app-shell__panel p {
+  margin: 0;
+  line-height: 1.6;
+  color: #b4c4da;
+}
+
+.app-shell__meta {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(139, 196, 255, 0.12);
+}
+
+.app-shell__meta span {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8bc4ff;
+}
+
+.app-shell__meta strong {
+  color: #f5f8ff;
+}
+
+.app-shell__grid {
+  display: grid;
+  gap: 1rem;
+  margin-top: 2rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.app-shell__card {
+  padding: 1.4rem;
+}
+
+.app-shell__path {
+  display: inline-flex;
+  margin-bottom: 0.85rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(139, 196, 255, 0.1);
+  color: #8bc4ff;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.app-shell__card p {
+  margin: 0;
+  color: #b4c4da;
+  line-height: 1.6;
+}
+
+.app-shell__footer {
+  margin-top: 2rem;
+  color: #92a5c0;
+  font-size: 0.95rem;
+}
+
+.app-shell__footer code {
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.4rem;
+  background: rgba(139, 196, 255, 0.1);
+  color: #cfe5ff;
+}
+
+@media (max-width: 900px) {
+  .app-shell__content {
+    width: min(100%, calc(100% - 1.5rem));
+    padding: 2rem 0 3rem;
+  }
+
+  .app-shell__hero,
+  .app-shell__grid {
+    grid-template-columns: 1fr;
+  }
+}
