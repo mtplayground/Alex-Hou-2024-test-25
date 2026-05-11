@@ -14,6 +14,10 @@ describe('useViewportStore', () => {
       width: 5,
     })
     useViewportStore.getState().setVisualizationMode('pressure')
+    useViewportStore.getState().setSsfrBlurSettings({
+      iterations: 4,
+      radius: 7,
+    })
     useViewportStore.getState().toggleHelpers()
 
     useViewportStore.getState().reset()
@@ -23,6 +27,10 @@ describe('useViewportStore', () => {
       depth: 4.5,
       height: 3,
       width: 4.5,
+    })
+    expect(nextState.ssfrBlurSettings).toEqual({
+      iterations: 2,
+      radius: 4,
     })
     expect(nextState.showHelpers).toBe(appDefaults.showHelpers)
     expect(nextState.visualizationMode).toBe('speed')

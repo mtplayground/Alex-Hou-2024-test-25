@@ -7,6 +7,11 @@ export interface ContainerSize {
   width: number
 }
 
+export interface SsfrBlurSettings {
+  iterations: number
+  radius: number
+}
+
 export type VisualizationMode = 'density' | 'pressure' | 'speed'
 
 const DEFAULT_CONTAINER_SIZE: ContainerSize = {
@@ -15,8 +20,15 @@ const DEFAULT_CONTAINER_SIZE: ContainerSize = {
   width: 4.5,
 }
 
+const DEFAULT_SSFR_BLUR_SETTINGS: SsfrBlurSettings = {
+  iterations: 2,
+  radius: 4,
+}
+
 interface ViewportState {
   containerSize: ContainerSize
+  ssfrBlurSettings: SsfrBlurSettings
+  setSsfrBlurSettings: (ssfrBlurSettings: SsfrBlurSettings) => void
   setVisualizationMode: (visualizationMode: VisualizationMode) => void
   showHelpers: boolean
   setContainerSize: (nextContainerSize: ContainerSize) => void
@@ -27,6 +39,8 @@ interface ViewportState {
 
 export const useViewportStore = create<ViewportState>((set) => ({
   containerSize: DEFAULT_CONTAINER_SIZE,
+  ssfrBlurSettings: DEFAULT_SSFR_BLUR_SETTINGS,
+  setSsfrBlurSettings: (ssfrBlurSettings) => set({ ssfrBlurSettings }),
   setVisualizationMode: (visualizationMode) => set({ visualizationMode }),
   showHelpers: appDefaults.showHelpers,
   setContainerSize: (nextContainerSize) =>
@@ -35,6 +49,7 @@ export const useViewportStore = create<ViewportState>((set) => ({
   reset: () =>
     set({
       containerSize: DEFAULT_CONTAINER_SIZE,
+      ssfrBlurSettings: DEFAULT_SSFR_BLUR_SETTINGS,
       showHelpers: appDefaults.showHelpers,
       visualizationMode: 'speed',
     }),

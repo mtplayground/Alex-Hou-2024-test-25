@@ -46,6 +46,7 @@ export function SceneViewport({
     stepRate: 0,
   })
   const containerSize = useViewportStore((state) => state.containerSize)
+  const ssfrBlurSettings = useViewportStore((state) => state.ssfrBlurSettings)
   const showHelpers = useViewportStore((state) => state.showHelpers)
   const visualizationMode = useViewportStore((state) => state.visualizationMode)
   const scene = useSceneStore((state) => state.scene)
@@ -81,6 +82,7 @@ export function SceneViewport({
         onSimulationReadyChange: onSimulationReadyChange ?? undefined,
         onStatsChange: setStats,
         ...(onWebmCaptureChange === undefined ? {} : { onWebmCaptureChange }),
+        ssfrBlurSettings: initialState.ssfrBlurSettings,
         simParams: sceneState.simParams,
         simulationSpeed,
         showHelpers: initialState.showHelpers,
@@ -142,6 +144,10 @@ export function SceneViewport({
   useEffect(() => {
     controllerRef.current?.setSimulationParams(simParams)
   }, [simParams])
+
+  useEffect(() => {
+    controllerRef.current?.setSsfrBlurSettings(ssfrBlurSettings)
+  }, [ssfrBlurSettings])
 
   useEffect(() => {
     controllerRef.current?.setSimulationSpeed(simulationSpeed)

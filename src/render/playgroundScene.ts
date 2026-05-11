@@ -1,4 +1,5 @@
 import type { ContainerSize } from '@/store/viewportStore'
+import type { SsfrBlurSettings } from '@/store/viewportStore'
 import type { VisualizationMode } from '@/store/viewportStore'
 import JSZip from 'jszip'
 import * as THREE from 'three'
@@ -18,8 +19,10 @@ import {
   updateParticleInstances,
 } from '@/render/particles'
 import {
+  createDepthBilateralBlurPass,
   createParticleDepthPass,
   createParticleThicknessPass,
+  type DepthBilateralBlurPass,
   type ParticleDepthPass,
   type ParticleThicknessPass,
 } from '@/render/ssfr'
@@ -42,6 +45,7 @@ interface PlaygroundSceneState {
   onSimulationReadyChange: ((running: boolean) => void) | undefined
   onStatsChange?: (stats: PlaygroundSceneStats) => void
   onWebmCaptureChange?: (state: WebmCaptureState) => void
+  ssfrBlurSettings: SsfrBlurSettings
   simParams: SimParams
   simulationSpeed: number
   showHelpers: boolean
@@ -77,6 +81,7 @@ export interface PlaygroundSceneController {
   setObstacles: (obstacles: SceneObstacle[]) => void
   setSimulationParams: (simParams: SimParams) => void
   setSimulationSpeed: (simulationSpeed: number) => void
+  setSsfrBlurSettings: (ssfrBlurSettings: SsfrBlurSettings) => void
   setVisualizationMode: (visualizationMode: VisualizationMode) => void
   startPngCapture: () => void
   startWebmCapture: (framerate: number) => void
@@ -284,6 +289,7 @@ export function createPlaygroundScene(
   let activeInitialFluid = initialState.initialFluid
   let activeObstacles = initialState.obstacles
   let activeSimParams = initialState.simParams
+  let activeSsfrBlurSettings = initialState.ssfrBlurSettings
   let simulationRunning = false
   let simulationSpeed = initialState.simulationSpeed
   let activeVisualizationMode = initialState.visualizationMode
@@ -318,6 +324,11 @@ export function createPlaygroundScene(
     height: Math.max(container.clientHeight, 1),
     maxParticles: particlePreview.instanceMatrix.count,
     particleRadius,
+    width: Math.max(container.clientWidth, 1),
+  })
+  let depthBlurPass: DepthBilateralBlurPass = createDepthBilateralBlurPass({
+    blurSettings: activeSsfrBlurSettings,
+    height: Math.max(container.clientHeight, 1),
     width: Math.max(container.clientWidth, 1),
   })
   let particleThicknessPass: ParticleThicknessPass =
@@ -357,6 +368,7 @@ export function createPlaygroundScene(
     scene.remove(particlePreview)
     particlePreview.geometry.dispose()
     particleDepthPass.dispose()
+    depthBlurPass.dispose()
     particleThicknessPass.dispose()
     particlePreview = createParticleInstances(
       Math.max(requiredCapacity, 1),
@@ -366,6 +378,11 @@ export function createPlaygroundScene(
       height: Math.max(container.clientHeight, 1),
       maxParticles: particlePreview.instanceMatrix.count,
       particleRadius,
+      width: Math.max(container.clientWidth, 1),
+    })
+    depthBlurPass = createDepthBilateralBlurPass({
+      blurSettings: activeSsfrBlurSettings,
+      height: Math.max(container.clientHeight, 1),
       width: Math.max(container.clientWidth, 1),
     })
     particleThicknessPass = createParticleThicknessPass({
@@ -649,6 +666,10 @@ export function createPlaygroundScene(
     },
     () => {
       particleDepthPass.render(viewport.renderer, viewport.camera)
+      depthBlurPass.render(
+        viewport.renderer,
+        particleDepthPass.renderTarget.texture,
+      )
       particleThicknessPass.render(viewport.renderer, viewport.camera)
       capturePngFrame()
     },
@@ -672,6 +693,7 @@ export function createPlaygroundScene(
       simulationClient.destroy()
       lighting.dispose()
       particleDepthPass.dispose()
+      depthBlurPass.dispose()
       particleThicknessPass.dispose()
       axesHelper.geometry.dispose()
       containerWireframe.geometry.dispose()
@@ -843,6 +865,10 @@ export function createPlaygroundScene(
           activeContainerSize.depth,
         ],
       })
+    },
+    setSsfrBlurSettings: (ssfrBlurSettings) => {
+      activeSsfrBlurSettings = ssfrBlurSettings
+      depthBlurPass.setBlurSettings(ssfrBlurSettings)
     },
     setSimulationSpeed: (nextSimulationSpeed) => {
       simulationSpeed = nextSimulationSpeed
