@@ -2,44 +2,53 @@
 
 ## What This Project Is
 
-Alex-Hou-2024-test-25 is a browser-based fluid simulation playground. It lets a user configure a scene, run a particle-based fluid simulation in real time, inspect the result in a 3D viewport, and export captures from the browser.
+Alex-Hou-2024-test-25 is a browser-based fluid playground: a React/Three.js app for configuring scenes, running a worker-backed SPH fluid simulation, viewing the result in 3D, and exporting captures from the browser.
 
 ## What It Does Today
 
-- Runs a worker-backed SPH-style fluid simulation in the browser.
-- Renders the scene with Three.js, including particles, container bounds, helpers, and obstacle boxes.
-- Supports built-in starter scenes: `Dam break`, `Fountain`, and `Drop into pool`.
-- Lets the user edit container size, obstacles, fluid source mode, and simulation parameters from a control rail.
+- Runs a real-time SPH-style fluid simulation in a Web Worker.
+- Renders the scene in Three.js with container bounds, helpers, obstacles, and fluid output.
+- Supports two render paths:
+  - `SSFR fluid surface`
+  - `Instanced particle spheres`
+- Supports SSFR debug views for:
+  - `final`
+  - `depth`
+  - `thickness`
+  - `normals`
+- Lets the user tune fluid appearance live: water color, absorption, thickness scale, Fresnel power, blur radius, and blur iterations.
+- Supports built-in starter scenes: `Dam break`, `Fountain`, and `Drop into pool`, each tuned with a better first-load camera angle.
 - Supports two fluid source modes:
   - initial block placement
   - continuous emitter with particle cap
-- Provides playback controls: play, pause, step, reset, and speed adjustment.
-- Shows a live HUD with FPS, simulation step rate, particle count, and elapsed sim time.
-- Supports visualization modes by speed, density, and pressure.
-- Saves, loads, imports, exports, and deletes scene presets via `localStorage`.
+- Provides playback controls: play, pause, step, reset, speed.
+- Shows live HUD stats: render FPS, step rate, particle count, sim time.
+- Supports particle scalar coloring by speed, density, and pressure.
+- Saves, loads, imports, exports, and deletes scene presets in `localStorage`.
 - Exports PNG frame sequences and WebM recordings from the viewport.
 
 ## Architecture Decisions
 
-- Frontend-only app built with Vite, React, and TypeScript.
-- Simulation stepping runs in a Web Worker; the main thread owns UI and rendering.
-- Three.js handles the viewport and particle rendering.
-- Zustand is the main state layer for scene/editor/view state.
-- The app is shipped as a static site; production output is the `dist/` directory.
+- Frontend-only static app built with Vite, React, and TypeScript.
+- Simulation stays off the main thread in a dedicated worker.
+- Zustand is the state boundary for scene state, viewport state, presets, and rendering controls.
+- Three.js owns the viewport, particle path, and SSFR multi-pass pipeline.
+- SSFR is organized as staged passes plus an `SSFRRenderer` orchestrator.
+- Built-in scene tuning and first-visit onboarding are driven from local scene metadata, not a backend.
 
 ## Operational Conventions
 
-- Dev server and preview run on `0.0.0.0:8080`.
+- Dev and preview serve on `0.0.0.0:8080`.
 - `npm run build` is the production build path.
-- `npm run serve:dist` is the plain static-server verification path for built output.
-- Test coverage is split between Vitest and Playwright.
-- Keyboard shortcuts currently include:
-  - `Space` for play/pause
-  - `R` for reset
+- `npm run serve:dist` is the plain static-host verification path for built output.
+- Coverage is split between Vitest and Playwright.
+- Keyboard shortcuts:
+  - `Space` toggles play/pause
+  - `R` resets the simulation
 
 ## Safety and Limits
 
-- The app clamps unsafe simulation inputs such as timestep, viscosity, and particle count.
+- Unsafe simulation inputs are clamped before they reach the worker.
 - Imported scenes are sanitized before use.
-- Worker/render failures are surfaced to the user instead of failing silently.
-- The current persistence model is browser-local presets in `localStorage`; no backend persistence is merged.
+- Worker and render failures are surfaced to the user instead of failing silently.
+- Persistence is browser-local only through `localStorage`; no backend persistence is merged.
