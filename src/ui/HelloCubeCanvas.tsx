@@ -11,7 +11,17 @@ import { createHelloCube, type HelloCubeController } from '@/render/helloCube'
 import { useHelloCubeStore } from '@/store/helloCubeStore'
 import { useSceneStore } from '@/store'
 
-export function HelloCubeCanvas() {
+interface HelloCubeCanvasProps {
+  onControllerChange?: (controller: HelloCubeController | null) => void
+  onSimulationReadyChange?: (running: boolean) => void
+  simulationSpeed?: number
+}
+
+export function HelloCubeCanvas({
+  onControllerChange,
+  onSimulationReadyChange,
+  simulationSpeed = 1,
+}: HelloCubeCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const controllerRef = useRef<HelloCubeController | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -29,6 +39,7 @@ export function HelloCubeCanvas() {
     }
 
     controllerRef.current?.dispose()
+    onControllerChange?.(null)
     controllerRef.current = null
     containerRef.current = node
 
@@ -38,17 +49,21 @@ export function HelloCubeCanvas() {
 
     try {
       const initialState = useHelloCubeStore.getState()
+      const sceneState = useSceneStore.getState().scene
 
       controllerRef.current = createHelloCube(node, {
         containerSize: initialState.containerSize,
-        emitter: useSceneStore.getState().scene.emitter,
-        initialFluid: useSceneStore.getState().scene.initialFluid,
-        obstacles: useSceneStore.getState().scene.obstacles,
+        emitter: sceneState.emitter,
+        initialFluid: sceneState.initialFluid,
+        obstacles: sceneState.obstacles,
         onSimulationError: setError,
+        onSimulationReadyChange: onSimulationReadyChange ?? undefined,
         rotationSpeed: initialState.rotationSpeed,
-        simParams: useSceneStore.getState().scene.simParams,
+        simParams: sceneState.simParams,
+        simulationSpeed,
         showHelpers: initialState.showHelpers,
       })
+      onControllerChange?.(controllerRef.current)
       setError(null)
     } catch (caughtError) {
       const message =
@@ -58,6 +73,12 @@ export function HelloCubeCanvas() {
       setError(message)
     }
   }
+
+  useEffect(() => {
+    return () => {
+      onControllerChange?.(null)
+    }
+  }, [onControllerChange])
 
   useEffect(() => {
     controllerRef.current?.setContainerSize(containerSize)
@@ -82,6 +103,10 @@ export function HelloCubeCanvas() {
   useEffect(() => {
     controllerRef.current?.setInitialFluid(initialFluid)
   }, [initialFluid])
+
+  useEffect(() => {
+    controllerRef.current?.setSimulationSpeed(simulationSpeed)
+  }, [simulationSpeed])
 
   return (
     <Card className="overflow-hidden border-white/10 bg-slate-950/40 shadow-2xl shadow-slate-950/20 backdrop-blur-sm">

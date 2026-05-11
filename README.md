@@ -92,3 +92,7 @@ Issue #21 renders scene obstacles in the Three.js smoke test and forwards that o
 Issue #22 replaces the hardcoded preview particle seed with deterministic initial-fluid block placement, generating a jittered lattice from the scene definition whenever the simulation initializes or resets.
 
 Issue #23 adds continuous emitter mode with a particle cap, worker-side spawning over time, and scene-to-renderer source switching between emitter and initial-block initialization.
+
+Issue #24 reshapes the app into a responsive workspace shell with a top bar, a canvas-first main viewport, and a collapsible side panel for controls.
+
+Issue #25 adds a simulation control bar wired to the worker client, including play, pause, step, reset, speed scaling, and keyboard shortcuts for play/pause and reset.
