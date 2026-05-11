@@ -11,10 +11,11 @@ export function createCubeMaterial(): THREE.MeshStandardMaterial {
 
 export function createParticleMaterial(): THREE.MeshStandardMaterial {
   return new THREE.MeshStandardMaterial({
-    color: 0x93c5fd,
+    color: 0xffffff,
     emissive: 0x1d4ed8,
     emissiveIntensity: 0.18,
     metalness: 0.05,
     roughness: 0.35,
+    vertexColors: true,
   })
 }

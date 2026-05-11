@@ -60,7 +60,13 @@ describe('SimulationWorkerHost', () => {
       },
       type: 'READY',
     })
-    expect(initPositions?.type).toBe('POSITIONS')
+    if (initPositions?.type !== 'POSITIONS') {
+      throw new Error('Expected a POSITIONS response after INIT.')
+    }
+
+    expect(initPositions.payload.densities).toHaveLength(1)
+    expect(initPositions.payload.pressures).toHaveLength(1)
+    expect(initPositions.payload.speeds).toHaveLength(1)
     expect(initStats).toEqual({
       payload: {
         particleCount: 1,
@@ -75,6 +81,15 @@ describe('SimulationWorkerHost', () => {
       (steppedPositions?.type === 'POSITIONS'
         ? steppedPositions.payload.positions.buffer
         : null) as Transferable,
+      (steppedPositions?.type === 'POSITIONS'
+        ? steppedPositions.payload.speeds.buffer
+        : null) as Transferable,
+      (steppedPositions?.type === 'POSITIONS'
+        ? steppedPositions.payload.densities.buffer
+        : null) as Transferable,
+      (steppedPositions?.type === 'POSITIONS'
+        ? steppedPositions.payload.pressures.buffer
+        : null) as Transferable,
     ])
 
     if (steppedPositions?.type !== 'POSITIONS') {
@@ -85,6 +100,9 @@ describe('SimulationWorkerHost', () => {
       [...steppedPositions.payload.positions],
       [0.25, 0.7019000053405762, 0.25],
     )
+    expect(steppedPositions.payload.speeds).toHaveLength(1)
+    expect(steppedPositions.payload.densities).toHaveLength(1)
+    expect(steppedPositions.payload.pressures).toHaveLength(1)
 
     expect(steppedStats).toEqual({
       payload: {
@@ -260,7 +278,13 @@ describe('SimulationWorkerHost', () => {
     }
 
     expect(initPositions.payload.positions).toHaveLength(0)
+    expect(initPositions.payload.speeds).toHaveLength(0)
+    expect(initPositions.payload.densities).toHaveLength(0)
+    expect(initPositions.payload.pressures).toHaveLength(0)
     expect(steppedPositions.payload.positions).toHaveLength(3)
+    expect(steppedPositions.payload.speeds).toHaveLength(1)
+    expect(steppedPositions.payload.densities).toHaveLength(1)
+    expect(steppedPositions.payload.pressures).toHaveLength(1)
     expect(steppedStats).toEqual({
       payload: {
         particleCount: 1,

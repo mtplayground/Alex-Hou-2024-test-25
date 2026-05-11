@@ -209,7 +209,13 @@ function ControlPanelBody({
   const rotationSpeed = useHelloCubeStore((state) => state.rotationSpeed)
   const showHelpers = useHelloCubeStore((state) => state.showHelpers)
   const setRotationSpeed = useHelloCubeStore((state) => state.setRotationSpeed)
+  const setVisualizationMode = useHelloCubeStore(
+    (state) => state.setVisualizationMode,
+  )
   const toggleHelpers = useHelloCubeStore((state) => state.toggleHelpers)
+  const visualizationMode = useHelloCubeStore(
+    (state) => state.visualizationMode,
+  )
   const reset = useHelloCubeStore((state) => state.reset)
   const syncViewportContainer = useHelloCubeStore(
     (state) => state.setContainerSize,
@@ -718,6 +724,36 @@ function ControlPanelBody({
                 </p>
               </div>
             </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="mb-4 flex items-center gap-2 text-sm font-medium text-white">
+              <Sparkles className="size-4 text-sky-300" />
+              Visualization
+            </div>
+            <label className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                Particle color mode
+              </span>
+              <select
+                className="flex h-10 w-full rounded-md border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-sky-400/60"
+                onChange={(event) =>
+                  setVisualizationMode(
+                    event.target.value as 'density' | 'pressure' | 'speed',
+                  )
+                }
+                value={visualizationMode}
+              >
+                <option value="speed">Color by speed</option>
+                <option value="density">Color by density</option>
+                <option value="pressure">Color by pressure</option>
+              </select>
+            </label>
+            <p className="mt-3 text-xs leading-5 text-slate-400">
+              Instance colors are derived from the worker&apos;s latest particle
+              frame, so mode switches update immediately without restarting the
+              simulation.
+            </p>
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">

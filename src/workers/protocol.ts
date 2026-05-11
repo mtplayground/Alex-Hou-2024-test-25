@@ -63,7 +63,10 @@ export type SimulationWorkerRequest =
 export interface SimulationPositionsMessage {
   readonly type: 'POSITIONS'
   readonly payload: {
+    readonly densities: Float32Array
     readonly positions: Float32Array
+    readonly pressures: Float32Array
+    readonly speeds: Float32Array
   }
 }
 
@@ -98,12 +101,10 @@ export type SimulationWorkerResponse =
   | SimulationStatsMessage
 
 export function createPositionsMessage(
-  positions: Float32Array,
+  frame: SimulationPositionsMessage['payload'],
 ): SimulationPositionsMessage {
   return {
-    payload: {
-      positions,
-    },
+    payload: frame,
     type: 'POSITIONS',
   }
 }
@@ -111,5 +112,10 @@ export function createPositionsMessage(
 export function positionsTransferList(
   message: SimulationPositionsMessage,
 ): Transferable[] {
-  return [message.payload.positions.buffer]
+  return [
+    message.payload.positions.buffer,
+    message.payload.speeds.buffer,
+    message.payload.densities.buffer,
+    message.payload.pressures.buffer,
+  ]
 }

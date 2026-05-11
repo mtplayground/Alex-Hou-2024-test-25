@@ -1,4 +1,5 @@
 import type { ContainerSize } from '@/store/helloCubeStore'
+import type { VisualizationMode } from '@/store/helloCubeStore'
 import * as THREE from 'three'
 import {
   buildInitialFluidBlockPositions,
@@ -19,6 +20,7 @@ import type {
   SceneObstacle,
 } from '@/types/scene'
 import { SimulationClient } from '@/workers'
+import type { SimulationFrame } from '@/workers/SimulationClient'
 
 interface HelloCubeState {
   containerSize: ContainerSize
@@ -32,6 +34,7 @@ interface HelloCubeState {
   simParams: SimParams
   simulationSpeed: number
   showHelpers: boolean
+  visualizationMode: VisualizationMode
 }
 
 export interface HelloCubeStats {
@@ -54,6 +57,7 @@ export interface HelloCubeController {
   setRotationSpeed: (rotationSpeed: number) => void
   setSimulationParams: (simParams: SimParams) => void
   setSimulationSpeed: (simulationSpeed: number) => void
+  setVisualizationMode: (visualizationMode: VisualizationMode) => void
   stepSimulation: () => void
 }
 
@@ -212,6 +216,7 @@ export function createHelloCube(
   let activeSimParams = initialState.simParams
   let simulationRunning = false
   let simulationSpeed = initialState.simulationSpeed
+  let activeVisualizationMode = initialState.visualizationMode
   let simulationSeed = buildSimulationSeed(
     activeContainerSize,
     activeEmitter,
@@ -225,6 +230,7 @@ export function createHelloCube(
     stepRate: 0,
   }
   let lastStatsPublishAt = 0
+  let lastFrame: SimulationFrame | null = null
   let particlePreview = createParticleInstances(
     Math.max(
       simulationSeed.positions.length,
@@ -312,11 +318,17 @@ export function createHelloCube(
   }
 
   const simulationClient = new SimulationClient()
-  const unsubscribeFrames = simulationClient.subscribeToFrames((positions) => {
-    updateParticleInstances(particlePreview, positions, activeContainerSize)
+  const unsubscribeFrames = simulationClient.subscribeToFrames((frame) => {
+    lastFrame = frame
+    updateParticleInstances(
+      particlePreview,
+      frame,
+      activeContainerSize,
+      activeVisualizationMode,
+    )
     latestStats = {
       ...latestStats,
-      particleCount: positions.length / 3,
+      particleCount: frame.positions.length / 3,
     }
     publishStats()
   })
@@ -491,6 +503,18 @@ export function createHelloCube(
 
       if (simulationRunning) {
         simulationClient.start(simulationStepDt())
+      }
+    },
+    setVisualizationMode: (nextVisualizationMode) => {
+      activeVisualizationMode = nextVisualizationMode
+
+      if (lastFrame) {
+        updateParticleInstances(
+          particlePreview,
+          lastFrame,
+          activeContainerSize,
+          activeVisualizationMode,
+        )
       }
     },
   }

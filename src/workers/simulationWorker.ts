@@ -69,7 +69,7 @@ export class SimulationWorkerHost {
   }
 
   private emitPositions(): void {
-    const message = createPositionsMessage(this.simulation.positions)
+    const message = createPositionsMessage(this.simulation.frame)
     this.postMessage(message, positionsTransferList(message))
   }
 

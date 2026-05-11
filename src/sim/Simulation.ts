@@ -15,6 +15,13 @@ export interface SimulationEmitter {
   readonly velocity: Vec3
 }
 
+export interface SimulationFrameSnapshot {
+  readonly densities: Float32Array
+  readonly positions: Float32Array
+  readonly pressures: Float32Array
+  readonly speeds: Float32Array
+}
+
 export interface SimulationInit {
   readonly emitter?: SimulationEmitter
   readonly params?: Partial<SimParams>
@@ -161,6 +168,29 @@ export class Simulation {
     return new Float32Array(
       particles.positions.subarray(0, particles.activeCount * 3),
     )
+  }
+
+  get frame(): SimulationFrameSnapshot {
+    const particles = assertInitialized(this.particles, 'particle buffer')
+    const activeCount = particles.activeCount
+    const speeds = new Float32Array(activeCount)
+
+    for (let index = 0; index < activeCount; index += 1) {
+      const offset = index * 3
+      const x = particles.velocities[offset] ?? 0
+      const y = particles.velocities[offset + 1] ?? 0
+      const z = particles.velocities[offset + 2] ?? 0
+      speeds[index] = Math.hypot(x, y, z)
+    }
+
+    return {
+      densities: new Float32Array(particles.densities.subarray(0, activeCount)),
+      positions: new Float32Array(
+        particles.positions.subarray(0, activeCount * 3),
+      ),
+      pressures: new Float32Array(particles.pressures.subarray(0, activeCount)),
+      speeds,
+    }
   }
 
   get simulationParams(): SimParams {

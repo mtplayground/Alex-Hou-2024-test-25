@@ -38,6 +38,9 @@ export function HelloCubeCanvas({
   const containerSize = useHelloCubeStore((state) => state.containerSize)
   const rotationSpeed = useHelloCubeStore((state) => state.rotationSpeed)
   const showHelpers = useHelloCubeStore((state) => state.showHelpers)
+  const visualizationMode = useHelloCubeStore(
+    (state) => state.visualizationMode,
+  )
   const scene = useSceneStore((state) => state.scene)
   const emitter = scene.emitter
   const obstacles = scene.obstacles
@@ -74,6 +77,7 @@ export function HelloCubeCanvas({
         simParams: sceneState.simParams,
         simulationSpeed,
         showHelpers: initialState.showHelpers,
+        visualizationMode: initialState.visualizationMode,
       })
       onControllerChange?.(controllerRef.current)
       setError(null)
@@ -123,6 +127,10 @@ export function HelloCubeCanvas({
   useEffect(() => {
     controllerRef.current?.setSimulationSpeed(simulationSpeed)
   }, [simulationSpeed])
+
+  useEffect(() => {
+    controllerRef.current?.setVisualizationMode(visualizationMode)
+  }, [visualizationMode])
 
   return (
     <Card className="overflow-hidden border-white/10 bg-slate-950/40 shadow-2xl shadow-slate-950/20 backdrop-blur-sm">
