@@ -39,6 +39,11 @@ describe('useSceneStore', () => {
     expect(nextState.simParams.viscosity).toBe(0.2)
     expect(nextState.obstacles).toEqual([
       {
+        center: [2.25, 0.9, 2.25],
+        id: 'obstacle-default',
+        size: [0.8, 0.6, 0.8],
+      },
+      {
         center: [1.5, 1, 1],
         id: 'obstacle-1',
         size: [0.75, 0.5, 0.5],
@@ -125,7 +130,13 @@ describe('useSceneStore', () => {
       height: 3,
       width: 4.5,
     })
-    expect(resetScene.obstacles).toEqual([])
+    expect(resetScene.obstacles).toEqual([
+      {
+        center: [2.25, 0.9, 2.25],
+        id: 'obstacle-default',
+        size: [0.8, 0.6, 0.8],
+      },
+    ])
     expect('initialFluid' in resetScene).toBe(true)
   })
 })

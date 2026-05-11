@@ -2,16 +2,19 @@ import type { ContainerSize } from '@/store/helloCubeStore'
 import * as THREE from 'three'
 import { createSceneLighting } from '@/render/lighting'
 import { createCubeMaterial, createParticleMaterial } from '@/render/materials'
+import { createObstacleGroup, disposeObstacleGroup } from '@/render/obstacles'
 import {
   buildSimulationPreviewPositions,
   createParticleInstances,
   updateParticleInstances,
 } from '@/render/particles'
 import { createThreeViewport } from '@/render/threeViewport'
+import type { SceneObstacle } from '@/types/scene'
 import { SimulationClient } from '@/workers'
 
 interface HelloCubeState {
   containerSize: ContainerSize
+  obstacles: SceneObstacle[]
   onSimulationError?: (message: string) => void
   rotationSpeed: number
   showHelpers: boolean
@@ -21,6 +24,7 @@ export interface HelloCubeController {
   dispose: () => void
   setContainerSize: (containerSize: ContainerSize) => void
   setHelpersVisible: (showHelpers: boolean) => void
+  setObstacles: (obstacles: SceneObstacle[]) => void
   setRotationSpeed: (rotationSpeed: number) => void
 }
 
@@ -59,8 +63,13 @@ function createContainerWireframe(
 function initializeSimulationClient(
   client: SimulationClient,
   containerSize: ContainerSize,
+  obstacles: readonly SceneObstacle[],
 ): void {
   client.init({
+    obstacles: obstacles.map((obstacle) => ({
+      center: obstacle.center,
+      size: obstacle.size,
+    })),
     params: {
       containerSize: [
         containerSize.width,
@@ -110,11 +119,28 @@ export function createHelloCube(
     initialState.containerSize,
   )
   let activeContainerSize = initialState.containerSize
+  let activeObstacles = initialState.obstacles
   const particlePreview = createParticleInstances(
     previewPositions.length,
     particleMaterial,
   )
   scene.add(particlePreview)
+  const obstacleMaterial = new THREE.MeshStandardMaterial({
+    color: 0xf59e0b,
+    emissive: 0x78350f,
+    emissiveIntensity: 0.15,
+    metalness: 0.08,
+    roughness: 0.55,
+    transparent: true,
+    opacity: 0.92,
+  })
+  let obstacleGroup = createObstacleGroup(
+    activeObstacles,
+    obstacleMaterial,
+    activeContainerSize.width,
+    activeContainerSize.depth,
+  )
+  scene.add(obstacleGroup)
 
   const simulationClient = new SimulationClient()
   const unsubscribeFrames = simulationClient.subscribeToFrames((positions) => {
@@ -123,7 +149,11 @@ export function createHelloCube(
   const unsubscribeErrors = simulationClient.subscribeToErrors((message) => {
     initialState.onSimulationError?.(message)
   })
-  initializeSimulationClient(simulationClient, initialState.containerSize)
+  initializeSimulationClient(
+    simulationClient,
+    initialState.containerSize,
+    initialState.obstacles,
+  )
 
   const axesHelper = new THREE.AxesHelper(1.7)
   const gridHelper = new THREE.GridHelper(8, 8, 0xef4444, 0x334155)
@@ -143,6 +173,7 @@ export function createHelloCube(
         cube,
         containerWireframe,
         particlePreview,
+        obstacleGroup,
         axesHelper,
         gridHelper,
       )
@@ -155,26 +186,66 @@ export function createHelloCube(
       containerWireframe.geometry.dispose()
       gridHelper.geometry.dispose()
       particlePreview.geometry.dispose()
+      disposeObstacleGroup(obstacleGroup)
       disposeMaterial(cube.material)
       disposeMaterial(containerWireframe.material)
       disposeMaterial(gridHelper.material)
       disposeMaterial(particleMaterial)
+      disposeMaterial(obstacleMaterial)
       viewport.dispose()
     },
     setContainerSize: (nextContainerSize) => {
       activeContainerSize = nextContainerSize
       scene.remove(containerWireframe)
+      scene.remove(obstacleGroup)
       containerWireframe.geometry.dispose()
+      disposeObstacleGroup(obstacleGroup)
       disposeMaterial(containerWireframe.material)
       containerWireframe = createContainerWireframe(nextContainerSize)
+      obstacleGroup = createObstacleGroup(
+        activeObstacles,
+        obstacleMaterial,
+        nextContainerSize.width,
+        nextContainerSize.depth,
+      )
       scene.add(containerWireframe)
+      scene.add(obstacleGroup)
       controls.target.y = nextContainerSize.height * 0.45
       controls.update()
-      initializeSimulationClient(simulationClient, nextContainerSize)
+      initializeSimulationClient(
+        simulationClient,
+        nextContainerSize,
+        activeObstacles,
+      )
     },
     setHelpersVisible: (showHelpers) => {
       axesHelper.visible = showHelpers
       gridHelper.visible = showHelpers
+    },
+    setObstacles: (obstacles) => {
+      activeObstacles = obstacles
+      scene.remove(obstacleGroup)
+      disposeObstacleGroup(obstacleGroup)
+      obstacleGroup = createObstacleGroup(
+        obstacles,
+        obstacleMaterial,
+        activeContainerSize.width,
+        activeContainerSize.depth,
+      )
+      scene.add(obstacleGroup)
+      simulationClient.updateParams(
+        {
+          containerSize: [
+            activeContainerSize.width,
+            activeContainerSize.height,
+            activeContainerSize.depth,
+          ],
+        },
+        obstacles.map((obstacle) => ({
+          center: obstacle.center,
+          size: obstacle.size,
+        })),
+      )
     },
     setRotationSpeed: (nextRotationSpeed) => {
       rotationSpeed = nextRotationSpeed

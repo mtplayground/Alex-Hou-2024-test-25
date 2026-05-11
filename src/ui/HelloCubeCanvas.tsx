@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/card'
 import { createHelloCube, type HelloCubeController } from '@/render/helloCube'
 import { useHelloCubeStore } from '@/store/helloCubeStore'
+import { useSceneStore } from '@/store'
 
 export function HelloCubeCanvas() {
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -17,6 +18,7 @@ export function HelloCubeCanvas() {
   const containerSize = useHelloCubeStore((state) => state.containerSize)
   const rotationSpeed = useHelloCubeStore((state) => state.rotationSpeed)
   const showHelpers = useHelloCubeStore((state) => state.showHelpers)
+  const obstacles = useSceneStore((state) => state.scene.obstacles)
 
   const handleContainerRef = (node: HTMLDivElement | null) => {
     if (node === containerRef.current) {
@@ -36,6 +38,7 @@ export function HelloCubeCanvas() {
 
       controllerRef.current = createHelloCube(node, {
         containerSize: initialState.containerSize,
+        obstacles: useSceneStore.getState().scene.obstacles,
         onSimulationError: setError,
         rotationSpeed: initialState.rotationSpeed,
         showHelpers: initialState.showHelpers,
@@ -61,6 +64,10 @@ export function HelloCubeCanvas() {
   useEffect(() => {
     controllerRef.current?.setHelpersVisible(showHelpers)
   }, [showHelpers])
+
+  useEffect(() => {
+    controllerRef.current?.setObstacles(obstacles)
+  }, [obstacles])
 
   return (
     <Card className="overflow-hidden border-white/10 bg-slate-950/40 shadow-2xl shadow-slate-950/20 backdrop-blur-sm">
