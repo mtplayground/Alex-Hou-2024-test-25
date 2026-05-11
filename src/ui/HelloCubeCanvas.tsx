@@ -18,7 +18,9 @@ export function HelloCubeCanvas() {
   const containerSize = useHelloCubeStore((state) => state.containerSize)
   const rotationSpeed = useHelloCubeStore((state) => state.rotationSpeed)
   const showHelpers = useHelloCubeStore((state) => state.showHelpers)
-  const obstacles = useSceneStore((state) => state.scene.obstacles)
+  const scene = useSceneStore((state) => state.scene)
+  const obstacles = scene.obstacles
+  const initialFluid = scene.initialFluid
 
   const handleContainerRef = (node: HTMLDivElement | null) => {
     if (node === containerRef.current) {
@@ -38,9 +40,11 @@ export function HelloCubeCanvas() {
 
       controllerRef.current = createHelloCube(node, {
         containerSize: initialState.containerSize,
+        initialFluid: useSceneStore.getState().scene.initialFluid,
         obstacles: useSceneStore.getState().scene.obstacles,
         onSimulationError: setError,
         rotationSpeed: initialState.rotationSpeed,
+        simParams: useSceneStore.getState().scene.simParams,
         showHelpers: initialState.showHelpers,
       })
       setError(null)
@@ -69,6 +73,10 @@ export function HelloCubeCanvas() {
     controllerRef.current?.setObstacles(obstacles)
   }, [obstacles])
 
+  useEffect(() => {
+    controllerRef.current?.setInitialFluid(initialFluid)
+  }, [initialFluid])
+
   return (
     <Card className="overflow-hidden border-white/10 bg-slate-950/40 shadow-2xl shadow-slate-950/20 backdrop-blur-sm">
       <CardHeader className="border-b border-white/10">
@@ -76,7 +84,8 @@ export function HelloCubeCanvas() {
         <CardDescription>
           A minimal Three.js scene renders a rotating cube, XYZ axes, an XZ
           grid, a reactive simulation container wireframe, and particle frames
-          streamed from the simulation worker into shared instanced geometry.
+          streamed from the simulation worker from the scene store&apos;s
+          initial fluid block lattice into shared instanced geometry.
         </CardDescription>
       </CardHeader>
       <CardContent className="p-0">

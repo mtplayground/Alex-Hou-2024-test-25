@@ -1,22 +1,24 @@
 import type { ContainerSize } from '@/store/helloCubeStore'
 import * as THREE from 'three'
+import { buildInitialFluidBlockPositions, type SimParams } from '@/sim'
 import { createSceneLighting } from '@/render/lighting'
 import { createCubeMaterial, createParticleMaterial } from '@/render/materials'
 import { createObstacleGroup, disposeObstacleGroup } from '@/render/obstacles'
 import {
-  buildSimulationPreviewPositions,
   createParticleInstances,
   updateParticleInstances,
 } from '@/render/particles'
 import { createThreeViewport } from '@/render/threeViewport'
-import type { SceneObstacle } from '@/types/scene'
+import type { InitialFluidBlock, SceneObstacle } from '@/types/scene'
 import { SimulationClient } from '@/workers'
 
 interface HelloCubeState {
   containerSize: ContainerSize
+  initialFluid: InitialFluidBlock | undefined
   obstacles: SceneObstacle[]
   onSimulationError?: (message: string) => void
   rotationSpeed: number
+  simParams: SimParams
   showHelpers: boolean
 }
 
@@ -24,6 +26,7 @@ export interface HelloCubeController {
   dispose: () => void
   setContainerSize: (containerSize: ContainerSize) => void
   setHelpersVisible: (showHelpers: boolean) => void
+  setInitialFluid: (initialFluid: InitialFluidBlock | undefined) => void
   setObstacles: (obstacles: SceneObstacle[]) => void
   setRotationSpeed: (rotationSpeed: number) => void
 }
@@ -64,6 +67,8 @@ function initializeSimulationClient(
   client: SimulationClient,
   containerSize: ContainerSize,
   obstacles: readonly SceneObstacle[],
+  simParams: SimParams,
+  positions: readonly [number, number, number][],
 ): void {
   client.init({
     obstacles: obstacles.map((obstacle) => ({
@@ -71,18 +76,35 @@ function initializeSimulationClient(
       size: obstacle.size,
     })),
     params: {
+      ...simParams,
       containerSize: [
         containerSize.width,
         containerSize.height,
         containerSize.depth,
       ],
-      gravity: [0, -9.81, 0],
-      particleMass: 0,
-      viscosity: 0,
     },
-    positions: buildSimulationPreviewPositions(containerSize),
+    positions,
   })
   client.start(1 / 60)
+}
+
+function buildSeedPositions(
+  containerSize: ContainerSize,
+  initialFluid: InitialFluidBlock | undefined,
+  simParams: SimParams,
+): [number, number, number][] {
+  if (initialFluid === undefined) {
+    return []
+  }
+
+  return buildInitialFluidBlockPositions(initialFluid, {
+    ...simParams,
+    containerSize: [
+      containerSize.width,
+      containerSize.height,
+      containerSize.depth,
+    ],
+  })
 }
 
 export function createHelloCube(
@@ -115,13 +137,17 @@ export function createHelloCube(
   scene.add(containerWireframe)
 
   const particleMaterial = createParticleMaterial()
-  const previewPositions = buildSimulationPreviewPositions(
-    initialState.containerSize,
-  )
   let activeContainerSize = initialState.containerSize
+  let activeInitialFluid = initialState.initialFluid
   let activeObstacles = initialState.obstacles
-  const particlePreview = createParticleInstances(
-    previewPositions.length,
+  const activeSimParams = initialState.simParams
+  let seedPositions = buildSeedPositions(
+    activeContainerSize,
+    activeInitialFluid,
+    activeSimParams,
+  )
+  let particlePreview = createParticleInstances(
+    Math.max(seedPositions.length, 1),
     particleMaterial,
   )
   scene.add(particlePreview)
@@ -142,6 +168,38 @@ export function createHelloCube(
   )
   scene.add(obstacleGroup)
 
+  const syncParticlePreviewCapacity = (
+    nextPositions: readonly [number, number, number][],
+  ) => {
+    if (nextPositions.length <= particlePreview.instanceMatrix.count) {
+      return
+    }
+
+    scene.remove(particlePreview)
+    particlePreview.geometry.dispose()
+    particlePreview = createParticleInstances(
+      nextPositions.length,
+      particleMaterial,
+    )
+    scene.add(particlePreview)
+  }
+
+  const reinitializeSimulation = () => {
+    seedPositions = buildSeedPositions(
+      activeContainerSize,
+      activeInitialFluid,
+      activeSimParams,
+    )
+    syncParticlePreviewCapacity(seedPositions)
+    initializeSimulationClient(
+      simulationClient,
+      activeContainerSize,
+      activeObstacles,
+      activeSimParams,
+      seedPositions,
+    )
+  }
+
   const simulationClient = new SimulationClient()
   const unsubscribeFrames = simulationClient.subscribeToFrames((positions) => {
     updateParticleInstances(particlePreview, positions, activeContainerSize)
@@ -153,6 +211,8 @@ export function createHelloCube(
     simulationClient,
     initialState.containerSize,
     initialState.obstacles,
+    initialState.simParams,
+    seedPositions,
   )
 
   const axesHelper = new THREE.AxesHelper(1.7)
@@ -212,15 +272,15 @@ export function createHelloCube(
       scene.add(obstacleGroup)
       controls.target.y = nextContainerSize.height * 0.45
       controls.update()
-      initializeSimulationClient(
-        simulationClient,
-        nextContainerSize,
-        activeObstacles,
-      )
+      reinitializeSimulation()
     },
     setHelpersVisible: (showHelpers) => {
       axesHelper.visible = showHelpers
       gridHelper.visible = showHelpers
+    },
+    setInitialFluid: (initialFluid) => {
+      activeInitialFluid = initialFluid
+      reinitializeSimulation()
     },
     setObstacles: (obstacles) => {
       activeObstacles = obstacles

@@ -1,39 +1,5 @@
-import type { ContainerSize } from '@/store/helloCubeStore'
 import * as THREE from 'three'
-
-const PREVIEW_GRID = {
-  columns: 2,
-  layers: 2,
-  rows: 2,
-}
-
-export function buildSimulationPreviewPositions(
-  containerSize: ContainerSize,
-): [number, number, number][] {
-  const spacing =
-    Math.min(containerSize.width, containerSize.height, containerSize.depth) *
-    0.12
-  const origin = {
-    x: containerSize.width * 0.35,
-    y: containerSize.height * 0.48,
-    z: containerSize.depth * 0.32,
-  }
-  const positions: [number, number, number][] = []
-
-  for (let layer = 0; layer < PREVIEW_GRID.layers; layer += 1) {
-    for (let row = 0; row < PREVIEW_GRID.rows; row += 1) {
-      for (let column = 0; column < PREVIEW_GRID.columns; column += 1) {
-        positions.push([
-          origin.x + column * spacing,
-          origin.y + layer * spacing,
-          origin.z + row * spacing,
-        ])
-      }
-    }
-  }
-
-  return positions
-}
+import type { ContainerSize } from '@/store/helloCubeStore'
 
 export function createParticleInstances(
   count: number,
