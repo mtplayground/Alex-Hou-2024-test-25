@@ -46,6 +46,13 @@ const AXES = ['x', 'y', 'z'] as const
 
 type AxisKey = (typeof AXES)[number]
 
+const SIM_PARAMETER_LIMITS = {
+  gravity: { max: 5, min: -20, step: 0.1 },
+  particleCount: { max: 4096, min: 128, step: 32 },
+  restDensity: { max: 2000, min: 300, step: 10 },
+  viscosity: { max: 2, min: 0, step: 0.01 },
+} as const
+
 function MetricPill({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-slate-300">
@@ -214,7 +221,12 @@ function ControlPanelBody({
   const setEmitter = useSceneStore((state) => state.setEmitter)
   const setInitialFluid = useSceneStore((state) => state.setInitialFluid)
   const setSceneContainer = useSceneStore((state) => state.setContainer)
+  const updateSimParams = useSceneStore((state) => state.updateSimParams)
   const updateObstacle = useSceneStore((state) => state.updateObstacle)
+  const [particleCountDraft, setParticleCountDraft] = useState(
+    scene.emitter?.particleCap ?? appDefaults.defaultParticleCount,
+  )
+  const particleCountValue = scene.emitter?.particleCap ?? particleCountDraft
 
   const updateContainerDimension =
     (dimension: keyof ContainerSize) =>
@@ -242,7 +254,7 @@ function ControlPanelBody({
 
     setEmitter({
       direction: [0, -1, 0],
-      particleCap: appDefaults.defaultParticleCount,
+      particleCap: particleCountValue,
       position: [width * 0.5, height * 0.85, depth * 0.5],
       rate: appDefaults.defaultEmitterRate,
       speed: 2.5,
@@ -512,6 +524,199 @@ function ControlPanelBody({
                   value={scene.container.depth}
                 />
               </label>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="mb-4 flex items-center gap-2 text-sm font-medium text-white">
+              <Gauge className="size-4 text-sky-300" />
+              Sim parameters
+            </div>
+            <div className="space-y-5">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm text-slate-300">
+                  <span>Gravity Y</span>
+                  <span>{scene.simParams.gravity[1].toFixed(1)}</span>
+                </div>
+                <Slider
+                  max={SIM_PARAMETER_LIMITS.gravity.max}
+                  min={SIM_PARAMETER_LIMITS.gravity.min}
+                  onValueChange={(value) => {
+                    const nextValue = value[0]
+
+                    if (nextValue === undefined) {
+                      return
+                    }
+
+                    updateSimParams({
+                      gravity: [0, nextValue, 0],
+                    })
+                  }}
+                  step={SIM_PARAMETER_LIMITS.gravity.step}
+                  value={[scene.simParams.gravity[1]]}
+                />
+                <NumericInput
+                  label="Gravity"
+                  min={SIM_PARAMETER_LIMITS.gravity.min}
+                  onChange={(value) =>
+                    updateSimParams({
+                      gravity: [
+                        0,
+                        Math.min(
+                          SIM_PARAMETER_LIMITS.gravity.max,
+                          Math.max(SIM_PARAMETER_LIMITS.gravity.min, value),
+                        ),
+                        0,
+                      ],
+                    })
+                  }
+                  step={SIM_PARAMETER_LIMITS.gravity.step}
+                  value={scene.simParams.gravity[1]}
+                />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm text-slate-300">
+                  <span>Viscosity</span>
+                  <span>{scene.simParams.viscosity.toFixed(2)}</span>
+                </div>
+                <Slider
+                  max={SIM_PARAMETER_LIMITS.viscosity.max}
+                  min={SIM_PARAMETER_LIMITS.viscosity.min}
+                  onValueChange={(value) => {
+                    const nextValue = value[0]
+
+                    if (nextValue === undefined) {
+                      return
+                    }
+
+                    updateSimParams({
+                      viscosity: nextValue,
+                    })
+                  }}
+                  step={SIM_PARAMETER_LIMITS.viscosity.step}
+                  value={[scene.simParams.viscosity]}
+                />
+                <NumericInput
+                  label="Viscosity"
+                  min={SIM_PARAMETER_LIMITS.viscosity.min}
+                  onChange={(value) =>
+                    updateSimParams({
+                      viscosity: Math.min(
+                        SIM_PARAMETER_LIMITS.viscosity.max,
+                        Math.max(SIM_PARAMETER_LIMITS.viscosity.min, value),
+                      ),
+                    })
+                  }
+                  step={SIM_PARAMETER_LIMITS.viscosity.step}
+                  value={scene.simParams.viscosity}
+                />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm text-slate-300">
+                  <span>Rest density</span>
+                  <span>{scene.simParams.restDensity.toFixed(0)}</span>
+                </div>
+                <Slider
+                  max={SIM_PARAMETER_LIMITS.restDensity.max}
+                  min={SIM_PARAMETER_LIMITS.restDensity.min}
+                  onValueChange={(value) => {
+                    const nextValue = value[0]
+
+                    if (nextValue === undefined) {
+                      return
+                    }
+
+                    updateSimParams({
+                      restDensity: nextValue,
+                    })
+                  }}
+                  step={SIM_PARAMETER_LIMITS.restDensity.step}
+                  value={[scene.simParams.restDensity]}
+                />
+                <NumericInput
+                  label="Density"
+                  min={SIM_PARAMETER_LIMITS.restDensity.min}
+                  onChange={(value) =>
+                    updateSimParams({
+                      restDensity: Math.min(
+                        SIM_PARAMETER_LIMITS.restDensity.max,
+                        Math.max(SIM_PARAMETER_LIMITS.restDensity.min, value),
+                      ),
+                    })
+                  }
+                  step={SIM_PARAMETER_LIMITS.restDensity.step}
+                  value={scene.simParams.restDensity}
+                />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm text-slate-300">
+                  <span>Particle budget</span>
+                  <span>{particleCountValue}</span>
+                </div>
+                <Slider
+                  max={SIM_PARAMETER_LIMITS.particleCount.max}
+                  min={SIM_PARAMETER_LIMITS.particleCount.min}
+                  onValueChange={(value) => {
+                    const nextValue = value[0]
+
+                    if (nextValue === undefined) {
+                      return
+                    }
+
+                    const clampedValue = Math.round(
+                      Math.min(
+                        SIM_PARAMETER_LIMITS.particleCount.max,
+                        Math.max(
+                          SIM_PARAMETER_LIMITS.particleCount.min,
+                          nextValue,
+                        ),
+                      ),
+                    )
+                    if (scene.emitter !== undefined) {
+                      setEmitter({
+                        ...scene.emitter,
+                        particleCap: clampedValue,
+                      })
+                      return
+                    }
+
+                    setParticleCountDraft(clampedValue)
+                  }}
+                  step={SIM_PARAMETER_LIMITS.particleCount.step}
+                  value={[particleCountValue]}
+                />
+                <NumericInput
+                  label="Particle count"
+                  min={SIM_PARAMETER_LIMITS.particleCount.min}
+                  onChange={(value) => {
+                    const clampedValue = Math.round(
+                      Math.min(
+                        SIM_PARAMETER_LIMITS.particleCount.max,
+                        Math.max(SIM_PARAMETER_LIMITS.particleCount.min, value),
+                      ),
+                    )
+                    if (scene.emitter !== undefined) {
+                      setEmitter({
+                        ...scene.emitter,
+                        particleCap: clampedValue,
+                      })
+                      return
+                    }
+
+                    setParticleCountDraft(clampedValue)
+                  }}
+                  step={SIM_PARAMETER_LIMITS.particleCount.step}
+                  value={particleCountValue}
+                />
+                <p className="text-xs leading-5 text-slate-400">
+                  Safe ranges are enforced to reduce unstable particle bursts.
+                  Particle budget applies directly to emitter mode and becomes
+                  the next emitter cap when you switch sources.
+                </p>
+              </div>
             </div>
           </div>
 
