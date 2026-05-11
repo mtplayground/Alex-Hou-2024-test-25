@@ -6,6 +6,7 @@ export {
   createDepthBilateralBlurPass,
   type DepthBilateralBlurPass,
 } from './depthBilateralBlurPass'
+export { createSSFRRenderer, type SSFRRenderer } from './SSFRRenderer'
 export {
   createParticleThicknessPass,
   type ParticleThicknessPass,

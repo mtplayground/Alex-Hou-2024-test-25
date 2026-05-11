@@ -18,14 +18,7 @@ import {
   createParticleInstances,
   updateParticleInstances,
 } from '@/render/particles'
-import {
-  createDepthBilateralBlurPass,
-  createParticleDepthPass,
-  createParticleThicknessPass,
-  type DepthBilateralBlurPass,
-  type ParticleDepthPass,
-  type ParticleThicknessPass,
-} from '@/render/ssfr'
+import { createSSFRRenderer, type SSFRRenderer } from '@/render/ssfr'
 import { createThreeViewport } from '@/render/threeViewport'
 import type {
   InitialFluidBlock,
@@ -320,24 +313,13 @@ export function createPlaygroundScene(
     particleMaterial,
   )
   scene.add(particlePreview)
-  let particleDepthPass: ParticleDepthPass = createParticleDepthPass({
+  let ssfrRenderer: SSFRRenderer = createSSFRRenderer({
+    blurSettings: activeSsfrBlurSettings,
     height: Math.max(container.clientHeight, 1),
     maxParticles: particlePreview.instanceMatrix.count,
     particleRadius,
     width: Math.max(container.clientWidth, 1),
   })
-  let depthBlurPass: DepthBilateralBlurPass = createDepthBilateralBlurPass({
-    blurSettings: activeSsfrBlurSettings,
-    height: Math.max(container.clientHeight, 1),
-    width: Math.max(container.clientWidth, 1),
-  })
-  let particleThicknessPass: ParticleThicknessPass =
-    createParticleThicknessPass({
-      height: Math.max(container.clientHeight, 1),
-      maxParticles: particlePreview.instanceMatrix.count,
-      particleRadius,
-      width: Math.max(container.clientWidth, 1),
-    })
   const obstacleMaterial = new THREE.MeshStandardMaterial({
     color: 0xf59e0b,
     emissive: 0x78350f,
@@ -367,25 +349,13 @@ export function createPlaygroundScene(
 
     scene.remove(particlePreview)
     particlePreview.geometry.dispose()
-    particleDepthPass.dispose()
-    depthBlurPass.dispose()
-    particleThicknessPass.dispose()
+    ssfrRenderer.dispose()
     particlePreview = createParticleInstances(
       Math.max(requiredCapacity, 1),
       particleMaterial,
     )
-    particleDepthPass = createParticleDepthPass({
-      height: Math.max(container.clientHeight, 1),
-      maxParticles: particlePreview.instanceMatrix.count,
-      particleRadius,
-      width: Math.max(container.clientWidth, 1),
-    })
-    depthBlurPass = createDepthBilateralBlurPass({
+    ssfrRenderer = createSSFRRenderer({
       blurSettings: activeSsfrBlurSettings,
-      height: Math.max(container.clientHeight, 1),
-      width: Math.max(container.clientWidth, 1),
-    })
-    particleThicknessPass = createParticleThicknessPass({
       height: Math.max(container.clientHeight, 1),
       maxParticles: particlePreview.instanceMatrix.count,
       particleRadius,
@@ -394,8 +364,7 @@ export function createPlaygroundScene(
     scene.add(particlePreview)
 
     if (lastFrame) {
-      particleDepthPass.updateFrame(lastFrame, activeContainerSize)
-      particleThicknessPass.updateFrame(lastFrame, activeContainerSize)
+      ssfrRenderer.updateFrame(lastFrame, activeContainerSize)
     }
   }
 
@@ -609,8 +578,7 @@ export function createPlaygroundScene(
       activeContainerSize,
       activeVisualizationMode,
     )
-    particleDepthPass.updateFrame(frame, activeContainerSize)
-    particleThicknessPass.updateFrame(frame, activeContainerSize)
+    ssfrRenderer.updateFrame(frame, activeContainerSize)
     latestStats = {
       ...latestStats,
       particleCount: frame.positions.length / 3,
@@ -664,13 +632,8 @@ export function createPlaygroundScene(
         publishStats()
       }
     },
-    () => {
-      particleDepthPass.render(viewport.renderer, viewport.camera)
-      depthBlurPass.render(
-        viewport.renderer,
-        particleDepthPass.renderTarget.texture,
-      )
-      particleThicknessPass.render(viewport.renderer, viewport.camera)
+    (renderer, currentScene, camera) => {
+      ssfrRenderer.render(renderer, currentScene, camera, particlePreview)
       capturePngFrame()
     },
   )
@@ -692,9 +655,7 @@ export function createPlaygroundScene(
       unsubscribeStats()
       simulationClient.destroy()
       lighting.dispose()
-      particleDepthPass.dispose()
-      depthBlurPass.dispose()
-      particleThicknessPass.dispose()
+      ssfrRenderer.dispose()
       axesHelper.geometry.dispose()
       containerWireframe.geometry.dispose()
       gridHelper.geometry.dispose()
@@ -868,7 +829,7 @@ export function createPlaygroundScene(
     },
     setSsfrBlurSettings: (ssfrBlurSettings) => {
       activeSsfrBlurSettings = ssfrBlurSettings
-      depthBlurPass.setBlurSettings(ssfrBlurSettings)
+      ssfrRenderer.setBlurSettings(ssfrBlurSettings)
     },
     setSimulationSpeed: (nextSimulationSpeed) => {
       simulationSpeed = nextSimulationSpeed
