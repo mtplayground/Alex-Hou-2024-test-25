@@ -1,5 +1,7 @@
 import type { ContainerSize } from '@/store/helloCubeStore'
 import * as THREE from 'three'
+import { createSceneLighting } from '@/render/lighting'
+import { createCubeMaterial, createParticleMaterial } from '@/render/materials'
 import { createThreeViewport } from '@/render/threeViewport'
 
 interface HelloCubeState {
@@ -47,6 +49,41 @@ function createContainerWireframe(
   return containerWireframe
 }
 
+function createParticlePreview(
+  containerSize: ContainerSize,
+  material: THREE.MeshStandardMaterial,
+): THREE.InstancedMesh {
+  const particleGeometry = new THREE.SphereGeometry(0.12, 20, 20)
+  const previewPositions: [number, number, number][] = [
+    [-0.6, 0.55, -0.55],
+    [-0.2, 0.75, -0.1],
+    [0.2, 0.95, 0.25],
+    [0.55, 0.65, -0.3],
+    [-0.45, 1.15, 0.45],
+    [0.05, 1.35, -0.45],
+    [0.45, 1.05, 0.4],
+    [0.75, 0.85, 0.05],
+  ]
+  const particlePreview = new THREE.InstancedMesh(
+    particleGeometry,
+    material,
+    previewPositions.length,
+  )
+  const transform = new THREE.Matrix4()
+
+  previewPositions.forEach(([x, y, z], index) => {
+    transform.makeTranslation(
+      x * containerSize.width * 0.35,
+      Math.min(y, containerSize.height * 0.82),
+      z * containerSize.depth * 0.35,
+    )
+    particlePreview.setMatrixAt(index, transform)
+  })
+
+  particlePreview.instanceMatrix.needsUpdate = true
+  return particlePreview
+}
+
 export function createHelloCube(
   container: HTMLElement,
   initialState: HelloCubeState,
@@ -61,18 +98,12 @@ export function createHelloCube(
   controls.minDistance = 2
   controls.enablePan = false
 
-  const ambientLight = new THREE.AmbientLight(0xffffff, 1.6)
-  const directionalLight = new THREE.DirectionalLight(0x7dd3fc, 2.6)
-  directionalLight.position.set(3, 4, 2)
-  scene.add(ambientLight, directionalLight)
+  const lighting = createSceneLighting(scene)
 
+  const cubeMaterial = createCubeMaterial()
   const cube = new THREE.Mesh(
     new THREE.BoxGeometry(1.2, 1.2, 1.2),
-    new THREE.MeshStandardMaterial({
-      color: 0x38bdf8,
-      metalness: 0.15,
-      roughness: 0.3,
-    }),
+    cubeMaterial,
   )
   cube.position.y = 0.85
   cube.rotation.x = 0.55
@@ -81,6 +112,13 @@ export function createHelloCube(
 
   let containerWireframe = createContainerWireframe(initialState.containerSize)
   scene.add(containerWireframe)
+
+  const particleMaterial = createParticleMaterial()
+  let particlePreview = createParticlePreview(
+    initialState.containerSize,
+    particleMaterial,
+  )
+  scene.add(particlePreview)
 
   const axesHelper = new THREE.AxesHelper(1.7)
   const gridHelper = new THREE.GridHelper(8, 8, 0xef4444, 0x334155)
@@ -99,26 +137,35 @@ export function createHelloCube(
       scene.remove(
         cube,
         containerWireframe,
+        particlePreview,
         axesHelper,
         gridHelper,
-        ambientLight,
-        directionalLight,
       )
+      lighting.dispose()
       cube.geometry.dispose()
       axesHelper.geometry.dispose()
       containerWireframe.geometry.dispose()
       gridHelper.geometry.dispose()
+      particlePreview.geometry.dispose()
       disposeMaterial(cube.material)
       disposeMaterial(containerWireframe.material)
       disposeMaterial(gridHelper.material)
+      disposeMaterial(particleMaterial)
       viewport.dispose()
     },
     setContainerSize: (nextContainerSize) => {
       scene.remove(containerWireframe)
+      scene.remove(particlePreview)
       containerWireframe.geometry.dispose()
+      particlePreview.geometry.dispose()
       disposeMaterial(containerWireframe.material)
       containerWireframe = createContainerWireframe(nextContainerSize)
+      particlePreview = createParticlePreview(
+        nextContainerSize,
+        particleMaterial,
+      )
       scene.add(containerWireframe)
+      scene.add(particlePreview)
       controls.target.y = nextContainerSize.height * 0.45
       controls.update()
     },
