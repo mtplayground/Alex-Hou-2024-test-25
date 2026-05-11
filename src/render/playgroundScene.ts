@@ -17,7 +17,12 @@ import {
   createParticleInstances,
   updateParticleInstances,
 } from '@/render/particles'
-import { createParticleDepthPass, type ParticleDepthPass } from '@/render/ssfr'
+import {
+  createParticleDepthPass,
+  createParticleThicknessPass,
+  type ParticleDepthPass,
+  type ParticleThicknessPass,
+} from '@/render/ssfr'
 import { createThreeViewport } from '@/render/threeViewport'
 import type {
   InitialFluidBlock,
@@ -315,6 +320,13 @@ export function createPlaygroundScene(
     particleRadius,
     width: Math.max(container.clientWidth, 1),
   })
+  let particleThicknessPass: ParticleThicknessPass =
+    createParticleThicknessPass({
+      height: Math.max(container.clientHeight, 1),
+      maxParticles: particlePreview.instanceMatrix.count,
+      particleRadius,
+      width: Math.max(container.clientWidth, 1),
+    })
   const obstacleMaterial = new THREE.MeshStandardMaterial({
     color: 0xf59e0b,
     emissive: 0x78350f,
@@ -345,6 +357,7 @@ export function createPlaygroundScene(
     scene.remove(particlePreview)
     particlePreview.geometry.dispose()
     particleDepthPass.dispose()
+    particleThicknessPass.dispose()
     particlePreview = createParticleInstances(
       Math.max(requiredCapacity, 1),
       particleMaterial,
@@ -355,10 +368,17 @@ export function createPlaygroundScene(
       particleRadius,
       width: Math.max(container.clientWidth, 1),
     })
+    particleThicknessPass = createParticleThicknessPass({
+      height: Math.max(container.clientHeight, 1),
+      maxParticles: particlePreview.instanceMatrix.count,
+      particleRadius,
+      width: Math.max(container.clientWidth, 1),
+    })
     scene.add(particlePreview)
 
     if (lastFrame) {
       particleDepthPass.updateFrame(lastFrame, activeContainerSize)
+      particleThicknessPass.updateFrame(lastFrame, activeContainerSize)
     }
   }
 
@@ -573,6 +593,7 @@ export function createPlaygroundScene(
       activeVisualizationMode,
     )
     particleDepthPass.updateFrame(frame, activeContainerSize)
+    particleThicknessPass.updateFrame(frame, activeContainerSize)
     latestStats = {
       ...latestStats,
       particleCount: frame.positions.length / 3,
@@ -628,6 +649,7 @@ export function createPlaygroundScene(
     },
     () => {
       particleDepthPass.render(viewport.renderer, viewport.camera)
+      particleThicknessPass.render(viewport.renderer, viewport.camera)
       capturePngFrame()
     },
   )
@@ -650,6 +672,7 @@ export function createPlaygroundScene(
       simulationClient.destroy()
       lighting.dispose()
       particleDepthPass.dispose()
+      particleThicknessPass.dispose()
       axesHelper.geometry.dispose()
       containerWireframe.geometry.dispose()
       gridHelper.geometry.dispose()
