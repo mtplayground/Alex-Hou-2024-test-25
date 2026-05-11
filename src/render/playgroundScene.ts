@@ -17,6 +17,7 @@ import {
   createParticleInstances,
   updateParticleInstances,
 } from '@/render/particles'
+import { createParticleDepthPass, type ParticleDepthPass } from '@/render/ssfr'
 import { createThreeViewport } from '@/render/threeViewport'
 import type {
   InitialFluidBlock,
@@ -256,6 +257,7 @@ export function createPlaygroundScene(
   container: HTMLElement,
   initialState: PlaygroundSceneState,
 ): PlaygroundSceneController {
+  const particleRadius = 0.08
   const viewport = createThreeViewport({
     cameraPosition: [2.8, 2.4, 3.6],
     container,
@@ -307,6 +309,12 @@ export function createPlaygroundScene(
     particleMaterial,
   )
   scene.add(particlePreview)
+  let particleDepthPass: ParticleDepthPass = createParticleDepthPass({
+    height: Math.max(container.clientHeight, 1),
+    maxParticles: particlePreview.instanceMatrix.count,
+    particleRadius,
+    width: Math.max(container.clientWidth, 1),
+  })
   const obstacleMaterial = new THREE.MeshStandardMaterial({
     color: 0xf59e0b,
     emissive: 0x78350f,
@@ -336,11 +344,22 @@ export function createPlaygroundScene(
 
     scene.remove(particlePreview)
     particlePreview.geometry.dispose()
+    particleDepthPass.dispose()
     particlePreview = createParticleInstances(
       Math.max(requiredCapacity, 1),
       particleMaterial,
     )
+    particleDepthPass = createParticleDepthPass({
+      height: Math.max(container.clientHeight, 1),
+      maxParticles: particlePreview.instanceMatrix.count,
+      particleRadius,
+      width: Math.max(container.clientWidth, 1),
+    })
     scene.add(particlePreview)
+
+    if (lastFrame) {
+      particleDepthPass.updateFrame(lastFrame, activeContainerSize)
+    }
   }
 
   const reinitializeSimulation = () => {
@@ -553,6 +572,7 @@ export function createPlaygroundScene(
       activeContainerSize,
       activeVisualizationMode,
     )
+    particleDepthPass.updateFrame(frame, activeContainerSize)
     latestStats = {
       ...latestStats,
       particleCount: frame.positions.length / 3,
@@ -592,19 +612,25 @@ export function createPlaygroundScene(
 
   publishCaptureState()
   publishWebmCaptureState()
-  viewport.start((deltaSeconds) => {
-    if (deltaSeconds > 0) {
-      const frameFps = 1 / deltaSeconds
-      latestStats = {
-        ...latestStats,
-        renderFps:
-          latestStats.renderFps === 0
-            ? frameFps
-            : latestStats.renderFps * 0.85 + frameFps * 0.15,
+  viewport.start(
+    (deltaSeconds) => {
+      if (deltaSeconds > 0) {
+        const frameFps = 1 / deltaSeconds
+        latestStats = {
+          ...latestStats,
+          renderFps:
+            latestStats.renderFps === 0
+              ? frameFps
+              : latestStats.renderFps * 0.85 + frameFps * 0.15,
+        }
+        publishStats()
       }
-      publishStats()
-    }
-  }, capturePngFrame)
+    },
+    () => {
+      particleDepthPass.render(viewport.renderer, viewport.camera)
+      capturePngFrame()
+    },
+  )
 
   return {
     dispose: () => {
@@ -623,6 +649,7 @@ export function createPlaygroundScene(
       unsubscribeStats()
       simulationClient.destroy()
       lighting.dispose()
+      particleDepthPass.dispose()
       axesHelper.geometry.dispose()
       containerWireframe.geometry.dispose()
       gridHelper.geometry.dispose()
