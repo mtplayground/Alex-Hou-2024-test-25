@@ -1060,6 +1060,7 @@ function ControlPanelBody({
               </span>
               <select
                 className="flex h-10 w-full rounded-md border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-sky-400/60"
+                data-testid="render-mode-select"
                 onChange={(event) =>
                   setRenderMode(event.target.value as 'fluid' | 'particles')
                 }
@@ -1093,6 +1094,7 @@ function ControlPanelBody({
               </span>
               <select
                 className="flex h-10 w-full rounded-md border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-sky-400/60"
+                data-testid="ssfr-debug-view-select"
                 onChange={(event) =>
                   setSsfrDebugView(
                     event.target.value as
