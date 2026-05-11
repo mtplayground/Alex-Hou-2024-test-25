@@ -1,4 +1,5 @@
 import type { ContainerSize } from '@/store/viewportStore'
+import type { RenderMode } from '@/store/viewportStore'
 import type { SsfrBlurSettings } from '@/store/viewportStore'
 import type { VisualizationMode } from '@/store/viewportStore'
 import JSZip from 'jszip'
@@ -38,6 +39,7 @@ interface PlaygroundSceneState {
   onSimulationReadyChange: ((running: boolean) => void) | undefined
   onStatsChange?: (stats: PlaygroundSceneStats) => void
   onWebmCaptureChange?: (state: WebmCaptureState) => void
+  renderMode: RenderMode
   ssfrBlurSettings: SsfrBlurSettings
   simParams: SimParams
   simulationSpeed: number
@@ -72,6 +74,7 @@ export interface PlaygroundSceneController {
   setHelpersVisible: (showHelpers: boolean) => void
   setInitialFluid: (initialFluid: InitialFluidBlock | undefined) => void
   setObstacles: (obstacles: SceneObstacle[]) => void
+  setRenderMode: (renderMode: RenderMode) => void
   setSimulationParams: (simParams: SimParams) => void
   setSimulationSpeed: (simulationSpeed: number) => void
   setSsfrBlurSettings: (ssfrBlurSettings: SsfrBlurSettings) => void
@@ -281,6 +284,7 @@ export function createPlaygroundScene(
   let activeEmitter = initialState.emitter
   let activeInitialFluid = initialState.initialFluid
   let activeObstacles = initialState.obstacles
+  let activeRenderMode = initialState.renderMode
   let activeSimParams = initialState.simParams
   let activeSsfrBlurSettings = initialState.ssfrBlurSettings
   let simulationRunning = false
@@ -633,7 +637,12 @@ export function createPlaygroundScene(
       }
     },
     (renderer, currentScene, camera) => {
-      ssfrRenderer.render(renderer, currentScene, camera, particlePreview)
+      if (activeRenderMode === 'fluid') {
+        ssfrRenderer.render(renderer, currentScene, camera, particlePreview)
+      } else {
+        particlePreview.visible = true
+        renderer.render(currentScene, camera)
+      }
       capturePngFrame()
     },
   )
@@ -815,6 +824,9 @@ export function createPlaygroundScene(
           size: obstacle.size,
         })),
       )
+    },
+    setRenderMode: (renderMode) => {
+      activeRenderMode = renderMode
     },
     setSimulationParams: (nextSimParams) => {
       activeSimParams = sanitizeSimParams(nextSimParams)

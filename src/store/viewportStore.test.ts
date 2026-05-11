@@ -13,6 +13,7 @@ describe('useViewportStore', () => {
       height: 4,
       width: 5,
     })
+    useViewportStore.getState().setRenderMode('particles')
     useViewportStore.getState().setVisualizationMode('pressure')
     useViewportStore.getState().setSsfrBlurSettings({
       iterations: 4,
@@ -28,6 +29,7 @@ describe('useViewportStore', () => {
       height: 3,
       width: 4.5,
     })
+    expect(nextState.renderMode).toBe('fluid')
     expect(nextState.ssfrBlurSettings).toEqual({
       iterations: 2,
       radius: 4,
