@@ -68,6 +68,7 @@ function cloneInitialFluid(initialFluid: InitialFluidBlock): InitialFluidBlock {
 function cloneEmitter(emitter: SceneEmitter): SceneEmitter {
   return {
     direction: cloneVec3(emitter.direction),
+    particleCap: emitter.particleCap,
     position: cloneVec3(emitter.position),
     rate: emitter.rate,
     speed: emitter.speed,

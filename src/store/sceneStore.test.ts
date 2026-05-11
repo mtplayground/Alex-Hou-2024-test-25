@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { appDefaults } from '@/config/env'
 import { useSceneStore } from '@/store/sceneStore'
 
 afterEach(() => {
@@ -54,6 +55,7 @@ describe('useSceneStore', () => {
   it('switches between initial fluid and emitter scene variants', () => {
     useSceneStore.getState().setEmitter({
       direction: [0, -1, 0],
+      particleCap: appDefaults.defaultParticleCount,
       position: [2, 2.5, 2],
       rate: 120,
       speed: 3,
@@ -65,6 +67,7 @@ describe('useSceneStore', () => {
     expect(emitterScene).toMatchObject({
       emitter: {
         direction: [0, -1, 0],
+        particleCap: appDefaults.defaultParticleCount,
         position: [2, 2.5, 2],
         rate: 120,
         speed: 3,
@@ -98,6 +101,7 @@ describe('useSceneStore', () => {
       },
       emitter: {
         direction: [0, -1, 0],
+        particleCap: appDefaults.defaultParticleCount,
         position: [3, 4, 2],
         rate: 240,
         speed: 5,

@@ -19,6 +19,7 @@ export function HelloCubeCanvas() {
   const rotationSpeed = useHelloCubeStore((state) => state.rotationSpeed)
   const showHelpers = useHelloCubeStore((state) => state.showHelpers)
   const scene = useSceneStore((state) => state.scene)
+  const emitter = scene.emitter
   const obstacles = scene.obstacles
   const initialFluid = scene.initialFluid
 
@@ -40,6 +41,7 @@ export function HelloCubeCanvas() {
 
       controllerRef.current = createHelloCube(node, {
         containerSize: initialState.containerSize,
+        emitter: useSceneStore.getState().scene.emitter,
         initialFluid: useSceneStore.getState().scene.initialFluid,
         obstacles: useSceneStore.getState().scene.obstacles,
         onSimulationError: setError,
@@ -74,6 +76,10 @@ export function HelloCubeCanvas() {
   }, [obstacles])
 
   useEffect(() => {
+    controllerRef.current?.setEmitter(emitter)
+  }, [emitter])
+
+  useEffect(() => {
     controllerRef.current?.setInitialFluid(initialFluid)
   }, [initialFluid])
 
@@ -84,8 +90,9 @@ export function HelloCubeCanvas() {
         <CardDescription>
           A minimal Three.js scene renders a rotating cube, XYZ axes, an XZ
           grid, a reactive simulation container wireframe, and particle frames
-          streamed from the simulation worker from the scene store&apos;s
-          initial fluid block lattice into shared instanced geometry.
+          streamed from the simulation worker from the scene store&apos;s active
+          fluid source, whether that source is an initial block lattice or a
+          continuous emitter.
         </CardDescription>
       </CardHeader>
       <CardContent className="p-0">

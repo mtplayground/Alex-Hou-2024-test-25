@@ -71,26 +71,38 @@ export function accumulateForces(
 ): void {
   validateSimParams(params)
 
-  const positions = Array.from({ length: particles.count }, (_value, index) =>
-    readVector(particles.positions, index, particles.count),
+  const positions = Array.from(
+    { length: particles.activeCount },
+    (_value, index) =>
+      readVector(particles.positions, index, particles.activeCount),
   )
-  const velocities = Array.from({ length: particles.count }, (_value, index) =>
-    readVector(particles.velocities, index, particles.count),
+  const velocities = Array.from(
+    { length: particles.activeCount },
+    (_value, index) =>
+      readVector(particles.velocities, index, particles.activeCount),
   )
 
   const grid = new SpatialHashGrid(params.smoothingLength)
   grid.rebuild(positions)
 
-  for (let index = 0; index < particles.count; index += 1) {
+  for (let index = 0; index < particles.activeCount; index += 1) {
     const position = positions[index]
     const velocity = velocities[index]
 
     if (position === undefined || velocity === undefined) {
-      throw createOutOfRangeError(index, particles.count)
+      throw createOutOfRangeError(index, particles.activeCount)
     }
 
-    const density = readScalar(particles.densities, index, particles.count)
-    const pressure = readScalar(particles.pressures, index, particles.count)
+    const density = readScalar(
+      particles.densities,
+      index,
+      particles.activeCount,
+    )
+    const pressure = readScalar(
+      particles.pressures,
+      index,
+      particles.activeCount,
+    )
 
     let totalForce = scaleVector(params.gravity, density)
 
@@ -109,7 +121,7 @@ export function accumulateForces(
       const neighborDensity = readScalar(
         particles.densities,
         neighborIndex,
-        particles.count,
+        particles.activeCount,
       )
 
       if (neighborDensity <= 0) {
@@ -119,7 +131,7 @@ export function accumulateForces(
       const neighborPressure = readScalar(
         particles.pressures,
         neighborIndex,
-        particles.count,
+        particles.activeCount,
       )
       const offset = subtractVectors(position, neighborPosition)
       const distance = distanceOf(offset)

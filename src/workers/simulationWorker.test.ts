@@ -167,4 +167,51 @@ describe('SimulationWorkerHost', () => {
       type: 'ERROR',
     })
   })
+
+  it('supports emitter initialization with an empty initial position set', () => {
+    const postMessage =
+      vi.fn<
+        (message: SimulationWorkerResponse, transfer?: Transferable[]) => void
+      >()
+    const host = new SimulationWorkerHost(postMessage)
+
+    host.handleMessage({
+      payload: {
+        emitter: {
+          cap: 2,
+          position: [0.5, 0.8, 0.5],
+          rate: 4,
+          velocity: [0, -1, 0],
+        },
+        params: {
+          gravity: [0, 0, 0],
+          particleMass: 0,
+          viscosity: 0,
+        },
+        positions: [],
+      },
+      type: 'INIT',
+    })
+
+    host.handleMessage({
+      payload: {
+        dt: 0.25,
+      },
+      type: 'STEP',
+    })
+
+    const initPositions = postMessage.mock.calls[1]?.[0]
+    const steppedPositions = postMessage.mock.calls[2]?.[0]
+
+    if (initPositions?.type !== 'POSITIONS') {
+      throw new Error('Expected a POSITIONS response after emitter INIT.')
+    }
+
+    if (steppedPositions?.type !== 'POSITIONS') {
+      throw new Error('Expected a POSITIONS response after emitter STEP.')
+    }
+
+    expect(initPositions.payload.positions).toHaveLength(0)
+    expect(steppedPositions.payload.positions).toHaveLength(3)
+  })
 })

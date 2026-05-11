@@ -1,6 +1,7 @@
 import type { BoxObstacle } from '@/sim/integrator'
 import type { Vec3 } from '@/sim/kernels'
 import type { SimParams } from '@/sim/particles'
+import type { SimulationEmitter } from '@/sim/Simulation'
 
 export type SimulationWorkerCommandType =
   | 'INIT'
@@ -13,6 +14,7 @@ export type SimulationWorkerCommandType =
 export interface InitSimulationMessage {
   readonly type: 'INIT'
   readonly payload: {
+    readonly emitter?: SimulationEmitter
     readonly obstacles?: readonly BoxObstacle[]
     readonly params?: Partial<SimParams>
     readonly positions: readonly Vec3[]

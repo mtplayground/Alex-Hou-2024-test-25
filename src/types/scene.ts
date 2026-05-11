@@ -20,6 +20,7 @@ export interface InitialFluidBlock {
 
 export interface SceneEmitter {
   direction: Vec3
+  particleCap: number
   position: Vec3
   rate: number
   speed: number

@@ -40,6 +40,8 @@ function createOutOfRangeError(index: number, count: number): RangeError {
 }
 
 export class ParticleBuffer {
+  private _activeCount: number
+
   readonly count: number
 
   readonly positions: Float32Array
@@ -60,6 +62,7 @@ export class ParticleBuffer {
     }
 
     this.count = count
+    this._activeCount = count
     this.positions = new Float32Array(count * 3)
     this.velocities = new Float32Array(count * 3)
     this.forces = new Float32Array(count * 3)
@@ -68,6 +71,7 @@ export class ParticleBuffer {
   }
 
   clear(): void {
+    this._activeCount = 0
     this.positions.fill(0)
     this.velocities.fill(0)
     this.forces.fill(0)
@@ -135,6 +139,24 @@ export class ParticleBuffer {
 
   setVelocity(index: number, velocity: Vec3): void {
     this.setVector(this.velocities, index, velocity)
+  }
+
+  setActiveCount(activeCount: number): void {
+    if (
+      !Number.isInteger(activeCount) ||
+      activeCount < 0 ||
+      activeCount > this.count
+    ) {
+      throw new RangeError(
+        `ParticleBuffer activeCount must be an integer between 0 and ${String(this.count)}. Received: ${String(activeCount)}.`,
+      )
+    }
+
+    this._activeCount = activeCount
+  }
+
+  get activeCount(): number {
+    return this._activeCount
   }
 
   private assertIndex(index: number): void {

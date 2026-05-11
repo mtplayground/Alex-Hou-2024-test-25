@@ -38,18 +38,19 @@ export function computeDensityPressure(
   validateSimParams(params)
 
   const grid = new SpatialHashGrid(params.smoothingLength)
-  const positions = Array.from({ length: particles.count }, (_value, index) =>
-    readPosition(particles, index),
+  const positions = Array.from(
+    { length: particles.activeCount },
+    (_value, index) => readPosition(particles, index),
   )
 
   grid.rebuild(positions)
 
-  for (let index = 0; index < particles.count; index += 1) {
+  for (let index = 0; index < particles.activeCount; index += 1) {
     const position = positions[index]
 
     if (position === undefined) {
       throw new RangeError(
-        `Particle index ${String(index)} is out of bounds for a buffer of ${String(particles.count)} particles.`,
+        `Particle index ${String(index)} is out of bounds for a buffer of ${String(particles.activeCount)} active particles.`,
       )
     }
 

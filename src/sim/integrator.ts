@@ -201,11 +201,23 @@ export function integrateParticles(
 ): void {
   validateSimParams(params)
 
-  for (let index = 0; index < particles.count; index += 1) {
-    const position = readVector(particles.positions, index, particles.count)
-    const velocity = readVector(particles.velocities, index, particles.count)
-    const force = readVector(particles.forces, index, particles.count)
-    const density = readScalar(particles.densities, index, particles.count)
+  for (let index = 0; index < particles.activeCount; index += 1) {
+    const position = readVector(
+      particles.positions,
+      index,
+      particles.activeCount,
+    )
+    const velocity = readVector(
+      particles.velocities,
+      index,
+      particles.activeCount,
+    )
+    const force = readVector(particles.forces, index, particles.activeCount)
+    const density = readScalar(
+      particles.densities,
+      index,
+      particles.activeCount,
+    )
     const acceleration =
       density > 0 ? scaleVector(force, 1 / density) : params.gravity
     const nextVelocity = addVectors(
