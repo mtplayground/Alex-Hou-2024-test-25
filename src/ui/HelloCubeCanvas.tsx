@@ -36,6 +36,7 @@ export function HelloCubeCanvas() {
 
       controllerRef.current = createHelloCube(node, {
         containerSize: initialState.containerSize,
+        onSimulationError: setError,
         rotationSpeed: initialState.rotationSpeed,
         showHelpers: initialState.showHelpers,
       })
@@ -67,8 +68,8 @@ export function HelloCubeCanvas() {
         <CardTitle className="text-white">Hello-Cube smoke test</CardTitle>
         <CardDescription>
           A minimal Three.js scene renders a rotating cube, XYZ axes, an XZ
-          grid, a reactive simulation container wireframe, and shared-material
-          particle preview spheres.
+          grid, a reactive simulation container wireframe, and particle frames
+          streamed from the simulation worker into shared instanced geometry.
         </CardDescription>
       </CardHeader>
       <CardContent className="p-0">
