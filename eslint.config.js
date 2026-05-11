@@ -14,7 +14,7 @@ const tsconfigRootDir = path.dirname(fileURLToPath(import.meta.url))
 export default defineConfig([
   globalIgnores(['dist', 'coverage']),
   {
-    files: ['**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}'],
     extends: [
       js.configs.recommended,
       ...tseslint.configs.strictTypeChecked,
@@ -28,7 +28,7 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
       parserOptions: {
-        projectService: true,
+        project: ['./tsconfig.app.json', './tsconfig.test.json'],
         tsconfigRootDir,
       },
     },
@@ -54,7 +54,12 @@ export default defineConfig([
     },
   },
   {
-    files: ['vite.config.ts'],
+    files: [
+      'e2e/**/*.ts',
+      'playwright.config.ts',
+      'vite.config.ts',
+      'vitest.config.ts',
+    ],
     extends: [
       js.configs.recommended,
       ...tseslint.configs.strictTypeChecked,
@@ -63,7 +68,7 @@ export default defineConfig([
     languageOptions: {
       globals: globals.node,
       parserOptions: {
-        projectService: true,
+        project: ['./tsconfig.node.json', './tsconfig.test.json'],
         tsconfigRootDir,
       },
     },

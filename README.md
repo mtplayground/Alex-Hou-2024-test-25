@@ -11,6 +11,8 @@ Browser-based fluid playground scaffolded with Vite, React, and TypeScript.
 - shadcn/ui
 - Three.js
 - Zustand
+- Vitest
+- Playwright
 - ESLint
 - Prettier
 
@@ -32,9 +34,11 @@ npm run lint
 npm run format
 npm run typecheck
 npm run build
+npm run test:unit
+npm run test:e2e
 ```
 
-## UI and render foundation
+## UI, render, and test foundation
 
 - `tailwind.config.js`: Tailwind theme and content scanning
 - `postcss.config.js`: Tailwind + Autoprefixer pipeline
@@ -43,6 +47,9 @@ npm run build
 - `src/lib/utils.ts`: shared `cn` helper for class composition
 - `src/render/helloCube.ts`: Three.js smoke scene lifecycle
 - `src/store/helloCubeStore.ts`: Zustand store for the smoke controls
+- `vitest.config.ts`: unit test configuration
+- `playwright.config.ts`: browser smoke-test configuration
+- `.env.example`: documented frontend defaults
 
 ## Directory layout
 
@@ -51,5 +58,6 @@ npm run build
 - `src/ui`: UI composition and presentation
 - `src/store`: app state modules
 - `src/workers`: worker entrypoints and message plumbing
+- `e2e`: Playwright smoke tests
 
-Issue #4 installs Three.js and Zustand, then verifies the integration with a rotating cube and axes-helper smoke scene.
+Issue #5 adds Vitest, Playwright, and `.env.example` so the current homepage and smoke-scene defaults can be validated automatically.

@@ -11,6 +11,7 @@ import { Slider } from '@/components/ui/slider'
 import { HelloCubeCanvas } from '@/ui/HelloCubeCanvas'
 import { renderModuleSummary } from '@/render'
 import { simulationModuleSummary } from '@/sim'
+import { appDefaults } from '@/config/env'
 import { useHelloCubeStore } from '@/store/helloCubeStore'
 import { storeModuleSummary } from '@/store'
 import { workerModuleSummary } from '@/workers'
@@ -94,6 +95,14 @@ export function AppShell() {
                   the origin. This is a smoke path only, not the final renderer
                   architecture.
                 </p>
+                <div className="mt-3 grid gap-1 text-xs uppercase tracking-[0.16em] text-slate-400">
+                  <span>
+                    default particle budget: {appDefaults.defaultParticleCount}
+                  </span>
+                  <span>
+                    default emitter rate: {appDefaults.defaultEmitterRate}
+                  </span>
+                </div>
               </div>
             </CardContent>
           </Card>
