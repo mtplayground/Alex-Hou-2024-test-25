@@ -75,6 +75,15 @@ export interface SimulationReadyMessage {
   }
 }
 
+export interface SimulationStatsMessage {
+  readonly type: 'STATS'
+  readonly payload: {
+    readonly particleCount: number
+    readonly simTime: number
+    readonly stepRate: number
+  }
+}
+
 export interface SimulationErrorMessage {
   readonly type: 'ERROR'
   readonly payload: {
@@ -86,6 +95,7 @@ export type SimulationWorkerResponse =
   | SimulationErrorMessage
   | SimulationPositionsMessage
   | SimulationReadyMessage
+  | SimulationStatsMessage
 
 export function createPositionsMessage(
   positions: Float32Array,

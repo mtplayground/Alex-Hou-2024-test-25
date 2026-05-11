@@ -7,7 +7,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { createHelloCube, type HelloCubeController } from '@/render/helloCube'
+import {
+  createHelloCube,
+  type HelloCubeController,
+  type HelloCubeStats,
+} from '@/render/helloCube'
 import { useHelloCubeStore } from '@/store/helloCubeStore'
 import { useSceneStore } from '@/store'
 
@@ -25,6 +29,12 @@ export function HelloCubeCanvas({
   const containerRef = useRef<HTMLDivElement | null>(null)
   const controllerRef = useRef<HelloCubeController | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [stats, setStats] = useState<HelloCubeStats>({
+    particleCount: 0,
+    renderFps: 0,
+    simTime: 0,
+    stepRate: 0,
+  })
   const containerSize = useHelloCubeStore((state) => state.containerSize)
   const rotationSpeed = useHelloCubeStore((state) => state.rotationSpeed)
   const showHelpers = useHelloCubeStore((state) => state.showHelpers)
@@ -59,6 +69,7 @@ export function HelloCubeCanvas({
         obstacles: sceneState.obstacles,
         onSimulationError: setError,
         onSimulationReadyChange: onSimulationReadyChange ?? undefined,
+        onStatsChange: setStats,
         rotationSpeed: initialState.rotationSpeed,
         simParams: sceneState.simParams,
         simulationSpeed,
@@ -129,7 +140,25 @@ export function HelloCubeCanvas({
         <div
           className="relative aspect-[16/10] min-h-[320px] w-full bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.15),_transparent_40%),linear-gradient(180deg,_rgba(8,15,28,0.95),_rgba(2,6,23,1))]"
           ref={handleContainerRef}
-        />
+        >
+          <div className="pointer-events-none absolute left-4 top-4 z-10 grid min-w-[220px] grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-slate-950/70 p-3 text-white shadow-2xl shadow-black/30 backdrop-blur-sm">
+            <StatTile
+              label="Render FPS"
+              value={stats.renderFps > 0 ? stats.renderFps.toFixed(1) : '0.0'}
+            />
+            <StatTile
+              label="Step Rate"
+              value={
+                stats.stepRate > 0 ? `${stats.stepRate.toFixed(1)}/s` : '0.0/s'
+              }
+            />
+            <StatTile
+              label="Particles"
+              value={stats.particleCount.toString()}
+            />
+            <StatTile label="Sim Time" value={`${stats.simTime.toFixed(2)}s`} />
+          </div>
+        </div>
         {error ? (
           <div className="flex items-start gap-3 border-t border-red-500/20 bg-red-500/10 px-5 py-4 text-sm text-red-100">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
@@ -140,5 +169,16 @@ export function HelloCubeCanvas({
         ) : null}
       </CardContent>
     </Card>
+  )
+}
+
+function StatTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+      <div className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-slate-400">
+        {label}
+      </div>
+      <div className="mt-1 text-sm font-semibold text-slate-100">{value}</div>
+    </div>
   )
 }

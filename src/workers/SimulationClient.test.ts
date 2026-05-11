@@ -109,8 +109,17 @@ describe('SimulationClient', () => {
     const frameListener = vi.fn<(positions: Float32Array) => void>()
     const readyListener =
       vi.fn<(payload: { initialized: boolean; running: boolean }) => void>()
+    const statsListener =
+      vi.fn<
+        (payload: {
+          particleCount: number
+          simTime: number
+          stepRate: number
+        }) => void
+      >()
     const unsubscribeFrames = client.subscribeToFrames(frameListener)
     client.subscribeToReady(readyListener)
+    client.subscribeToStats(statsListener)
 
     worker.emit({
       payload: {
@@ -125,10 +134,23 @@ describe('SimulationClient', () => {
       },
       type: 'POSITIONS',
     })
+    worker.emit({
+      payload: {
+        particleCount: 1,
+        simTime: 0.5,
+        stepRate: 60,
+      },
+      type: 'STATS',
+    })
 
     expect(readyListener).toHaveBeenCalledWith({
       initialized: true,
       running: false,
+    })
+    expect(statsListener).toHaveBeenCalledWith({
+      particleCount: 1,
+      simTime: 0.5,
+      stepRate: 60,
     })
     expect(frameListener).toHaveBeenCalledTimes(1)
     const firstFrame = frameListener.mock.calls[0]?.[0]

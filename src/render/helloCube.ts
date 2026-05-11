@@ -27,10 +27,18 @@ interface HelloCubeState {
   obstacles: SceneObstacle[]
   onSimulationError?: (message: string) => void
   onSimulationReadyChange: ((running: boolean) => void) | undefined
+  onStatsChange?: (stats: HelloCubeStats) => void
   rotationSpeed: number
   simParams: SimParams
   simulationSpeed: number
   showHelpers: boolean
+}
+
+export interface HelloCubeStats {
+  particleCount: number
+  renderFps: number
+  simTime: number
+  stepRate: number
 }
 
 export interface HelloCubeController {
@@ -210,6 +218,13 @@ export function createHelloCube(
     activeInitialFluid,
     activeSimParams,
   )
+  let latestStats: HelloCubeStats = {
+    particleCount: simulationSeed.positions.length,
+    renderFps: 0,
+    simTime: 0,
+    stepRate: 0,
+  }
+  let lastStatsPublishAt = 0
   let particlePreview = createParticleInstances(
     Math.max(
       simulationSeed.positions.length,
@@ -271,13 +286,39 @@ export function createHelloCube(
       activeSimParams,
       simulationSeed.positions,
     )
+    latestStats = {
+      ...latestStats,
+      particleCount: simulationSeed.positions.length,
+      simTime: 0,
+      stepRate: 0,
+    }
+    publishStats(true)
   }
 
   const simulationStepDt = () => (1 / 60) * simulationSpeed
 
+  const publishStats = (force = false) => {
+    const now =
+      typeof performance !== 'undefined' ? performance.now() : Date.now()
+
+    if (!force && now - lastStatsPublishAt < 100) {
+      return
+    }
+
+    lastStatsPublishAt = now
+    initialState.onStatsChange?.({
+      ...latestStats,
+    })
+  }
+
   const simulationClient = new SimulationClient()
   const unsubscribeFrames = simulationClient.subscribeToFrames((positions) => {
     updateParticleInstances(particlePreview, positions, activeContainerSize)
+    latestStats = {
+      ...latestStats,
+      particleCount: positions.length / 3,
+    }
+    publishStats()
   })
   const unsubscribeErrors = simulationClient.subscribeToErrors((message) => {
     initialState.onSimulationError?.(message)
@@ -285,6 +326,15 @@ export function createHelloCube(
   const unsubscribeReady = simulationClient.subscribeToReady((payload) => {
     simulationRunning = payload.running
     initialState.onSimulationReadyChange?.(payload.running)
+  })
+  const unsubscribeStats = simulationClient.subscribeToStats((stats) => {
+    latestStats = {
+      ...latestStats,
+      particleCount: stats.particleCount,
+      simTime: stats.simTime,
+      stepRate: stats.stepRate,
+    }
+    publishStats(true)
   })
   initializeSimulationClient(
     simulationClient,
@@ -302,9 +352,20 @@ export function createHelloCube(
   scene.add(axesHelper, gridHelper)
 
   let rotationSpeed = initialState.rotationSpeed
-  viewport.start(() => {
+  viewport.start((deltaSeconds) => {
     cube.rotation.y += rotationSpeed
     cube.rotation.x += rotationSpeed * 0.5
+    if (deltaSeconds > 0) {
+      const frameFps = 1 / deltaSeconds
+      latestStats = {
+        ...latestStats,
+        renderFps:
+          latestStats.renderFps === 0
+            ? frameFps
+            : latestStats.renderFps * 0.85 + frameFps * 0.15,
+      }
+      publishStats()
+    }
   })
 
   return {
@@ -320,6 +381,7 @@ export function createHelloCube(
       unsubscribeFrames()
       unsubscribeErrors()
       unsubscribeReady()
+      unsubscribeStats()
       simulationClient.destroy()
       lighting.dispose()
       cube.geometry.dispose()
