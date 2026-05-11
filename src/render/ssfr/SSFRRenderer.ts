@@ -1,5 +1,9 @@
 import * as THREE from 'three'
-import type { ContainerSize, SsfrBlurSettings } from '@/store/viewportStore'
+import type {
+  ContainerSize,
+  SsfrAppearanceSettings,
+  SsfrBlurSettings,
+} from '@/store/viewportStore'
 import type { SimulationFrame } from '@/workers/SimulationClient'
 import {
   createDepthBilateralBlurPass,
@@ -31,7 +35,12 @@ uniform float uCameraNear;
 uniform vec2 uProjectionScale;
 uniform sampler2D uSceneColorTexture;
 uniform sampler2D uSceneDepthTexture;
+uniform float uAbsorptionStrength;
+uniform float uFresnelPower;
+uniform float uShowThicknessDebug;
+uniform float uThicknessScale;
 uniform vec2 uTexelSize;
+uniform vec3 uWaterColor;
 
 varying vec2 vUv;
 
@@ -105,12 +114,24 @@ void main() {
   }
 
   vec3 viewDirection = normalize(-viewPosition);
-  float fresnel = pow(1.0 - max(dot(normal, viewDirection), 0.0), 4.5);
+  float scaledThickness = thickness * uThicknessScale;
+  float fresnel = pow(
+    1.0 - max(dot(normal, viewDirection), 0.0),
+    uFresnelPower
+  );
   vec3 reflectionColor = environmentReflection(reflect(-viewDirection, normal));
-  vec3 absorptionCoefficient = vec3(2.4, 1.3, 0.45);
-  vec3 transmittance = exp(-thickness * absorptionCoefficient);
+  vec3 absorptionCoefficient =
+    vec3(2.4, 1.3, 0.45) * max(uAbsorptionStrength, 0.0);
+  vec3 transmittance = exp(-scaledThickness * absorptionCoefficient);
+
+  if (uShowThicknessDebug > 0.5) {
+    float debugThickness = clamp(scaledThickness * 0.35, 0.0, 1.0);
+    gl_FragColor = vec4(mix(vec3(0.02), uWaterColor, debugThickness), 1.0);
+    return;
+  }
+
   vec3 tintedRefraction = mix(
-    vec3(0.035, 0.180, 0.290),
+    uWaterColor,
     sceneColor.rgb * transmittance,
     0.72
   );
@@ -119,7 +140,7 @@ void main() {
     reflectionColor,
     0.18 + fresnel * 0.72
   );
-  float opacity = clamp(1.0 - exp(-thickness * 2.2), 0.0, 0.96);
+  float opacity = clamp(1.0 - exp(-scaledThickness), 0.0, 0.96);
 
   gl_FragColor = vec4(
     mix(sceneColor.rgb, fluidColor, opacity),
@@ -129,6 +150,7 @@ void main() {
 `
 
 interface SSFRRendererOptions {
+  appearanceSettings: SsfrAppearanceSettings
   blurSettings: SsfrBlurSettings
   height: number
   maxParticles: number
@@ -153,6 +175,18 @@ function getTextureUniform(
   }
 
   return uniform as { value: THREE.DepthTexture | THREE.Texture | null }
+}
+
+function getColorUniform(material: THREE.ShaderMaterial): {
+  value: THREE.Color
+} {
+  const uniform = material.uniforms['uWaterColor']
+
+  if (uniform === undefined || !(uniform.value instanceof THREE.Color)) {
+    throw new Error('SSFR composite pass is missing the water-color uniform.')
+  }
+
+  return uniform as { value: THREE.Color }
 }
 
 function getVectorUniform(material: THREE.ShaderMaterial): {
@@ -183,7 +217,13 @@ function getTexelSizeUniform(material: THREE.ShaderMaterial): {
 
 function getNumericUniform(
   material: THREE.ShaderMaterial,
-  uniformName: 'uCameraNear' | 'uCameraFar',
+  uniformName:
+    | 'uAbsorptionStrength'
+    | 'uCameraNear'
+    | 'uCameraFar'
+    | 'uFresnelPower'
+    | 'uShowThicknessDebug'
+    | 'uThicknessScale',
 ): { value: number } {
   const uniform = material.uniforms[uniformName]
 
@@ -213,6 +253,7 @@ function createSceneRenderTarget(
 
 function createCompositeMaterial(
   camera: THREE.PerspectiveCamera,
+  appearanceSettings: SsfrAppearanceSettings,
 ): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     depthTest: false,
@@ -220,8 +261,10 @@ function createCompositeMaterial(
     fragmentShader: FLUID_COMPOSITE_FRAGMENT_SHADER,
     transparent: true,
     uniforms: {
+      uAbsorptionStrength: { value: appearanceSettings.absorptionStrength },
       uCameraFar: { value: camera.far },
       uCameraNear: { value: camera.near },
+      uFresnelPower: { value: appearanceSettings.fresnelPower },
       uFluidDepthTexture: { value: null },
       uFluidThicknessTexture: { value: null },
       uProjectionScale: {
@@ -232,7 +275,12 @@ function createCompositeMaterial(
       },
       uSceneColorTexture: { value: null },
       uSceneDepthTexture: { value: null },
+      uShowThicknessDebug: {
+        value: appearanceSettings.showThicknessDebug ? 1 : 0,
+      },
       uTexelSize: { value: new THREE.Vector2(1, 1) },
+      uThicknessScale: { value: appearanceSettings.thicknessScale },
+      uWaterColor: { value: new THREE.Color(appearanceSettings.waterColor) },
     },
     vertexShader: FULLSCREEN_VERTEX_SHADER,
   })
@@ -246,11 +294,13 @@ export interface SSFRRenderer {
     camera: THREE.PerspectiveCamera,
     particlePreview: THREE.Object3D,
   ) => void
+  setAppearanceSettings: (appearanceSettings: SsfrAppearanceSettings) => void
   setBlurSettings: (blurSettings: SsfrBlurSettings) => void
   updateFrame: (frame: SimulationFrame, containerSize: ContainerSize) => void
 }
 
 export function createSSFRRenderer({
+  appearanceSettings,
   blurSettings,
   height,
   maxParticles,
@@ -278,6 +328,7 @@ export function createSSFRRenderer({
   const size = new THREE.Vector2(width, height)
   const compositeMaterial = createCompositeMaterial(
     new THREE.PerspectiveCamera(45, 1, 0.1, 100),
+    appearanceSettings,
   )
   const compositeQuad = new THREE.Mesh(
     new THREE.PlaneGeometry(2, 2),
@@ -351,6 +402,19 @@ export function createSSFRRenderer({
       renderer.render(compositeScene, compositeCamera)
       renderer.autoClear = previousAutoClear
       particlePreview.visible = previousParticleVisibility
+    },
+    setAppearanceSettings: (nextAppearanceSettings) => {
+      getColorUniform(compositeMaterial).value.set(
+        nextAppearanceSettings.waterColor,
+      )
+      getNumericUniform(compositeMaterial, 'uAbsorptionStrength').value =
+        nextAppearanceSettings.absorptionStrength
+      getNumericUniform(compositeMaterial, 'uFresnelPower').value =
+        nextAppearanceSettings.fresnelPower
+      getNumericUniform(compositeMaterial, 'uThicknessScale').value =
+        nextAppearanceSettings.thicknessScale
+      getNumericUniform(compositeMaterial, 'uShowThicknessDebug').value =
+        nextAppearanceSettings.showThicknessDebug ? 1 : 0
     },
     setBlurSettings: (nextBlurSettings) => {
       blurPass.setBlurSettings(nextBlurSettings)
