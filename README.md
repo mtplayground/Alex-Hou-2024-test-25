@@ -76,3 +76,5 @@ Issue #13 adds the first density-and-pressure computation pass, using poly6 kern
 Issue #14 adds the force-accumulation pass, combining pressure-gradient, viscosity, and gravity contributions into each particle's typed-array force vector.
 
 Issue #15 adds semi-implicit Euler integration plus damped collisions against the axis-aligned simulation container and local obstacle boxes.
+
+Issue #16 adds a top-level `Simulation` class that initializes particle state, runs the density/force/integration pipeline per step, exposes position snapshots, and supports deterministic reset behavior.
