@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url'
 const tsconfigRootDir = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig([
-  globalIgnores(['dist', 'coverage']),
+  globalIgnores(['dist', 'coverage', 'playwright-report', 'test-results']),
   {
     files: ['src/**/*.{ts,tsx}'],
     extends: [

@@ -86,3 +86,7 @@ Issue #18 adds a main-thread `SimulationClient` wrapper that spawns the worker, 
 Issue #19 connects those worker frames to the Three.js smoke scene, updating instanced particle geometry from transferred position buffers every render cycle.
 
 Issue #20 adds the first durable scene data model plus a dedicated Zustand store for container dimensions, obstacles, fluid source, and simulation parameters.
+
+Issue #21 renders scene obstacles in the Three.js smoke test and forwards that obstacle list through the worker boundary so simulation collisions use the same boxes.
+
+Issue #22 replaces the hardcoded preview particle seed with deterministic initial-fluid block placement, generating a jittered lattice from the scene definition whenever the simulation initializes or resets.

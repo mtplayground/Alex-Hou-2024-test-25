@@ -1,26 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import * as THREE from 'three'
 import {
-  buildSimulationPreviewPositions,
   createParticleInstances,
   updateParticleInstances,
 } from '@/render/particles'
 
 describe('render particles helpers', () => {
-  it('builds a deterministic preview block inside the container volume', () => {
-    const positions = buildSimulationPreviewPositions({
-      depth: 4.5,
-      height: 3,
-      width: 4.5,
-    })
-
-    expect(positions).toHaveLength(8)
-    expect(positions[0]).toEqual([1.575, 1.44, 1.44])
-    expect(positions[7]).toEqual([
-      1.935, 1.7999999999999998, 1.7999999999999998,
-    ])
-  })
-
   it('updates instanced particle transforms from simulation coordinates', () => {
     const particles = createParticleInstances(
       2,

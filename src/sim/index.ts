@@ -8,6 +8,7 @@ export const simulationModuleSummary = {
 export { Simulation, type SimulationInit } from './Simulation'
 export { computeDensityPressure } from './densityPressure'
 export { accumulateForces } from './forces'
+export { buildInitialFluidBlockPositions } from './initialFluid'
 export { integrateParticles, type BoxObstacle } from './integrator'
 export { poly6Kernel, spikyGradient, viscosityLaplacian } from './kernels'
 export {
