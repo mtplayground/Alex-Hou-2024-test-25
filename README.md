@@ -104,3 +104,5 @@ Issue #27 adds a safe simulation-parameter panel for gravity, viscosity, rest de
 Issue #28 adds a live HUD overlay to the Three.js viewport for render FPS, simulation step rate, active particle count, and elapsed simulation time.
 
 Issue #29 adds visualization-mode toggles for speed, density, and pressure, with worker-supplied scalar buffers driving per-instance particle coloring in the viewport.
+
+Issue #30 adds validated scene JSON serialization plus a localStorage-backed preset manager for named create/list/load/delete workflows.
