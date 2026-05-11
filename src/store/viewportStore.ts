@@ -12,6 +12,7 @@ export interface SsfrBlurSettings {
   radius: number
 }
 
+export type RenderMode = 'fluid' | 'particles'
 export type VisualizationMode = 'density' | 'pressure' | 'speed'
 
 const DEFAULT_CONTAINER_SIZE: ContainerSize = {
@@ -27,7 +28,9 @@ const DEFAULT_SSFR_BLUR_SETTINGS: SsfrBlurSettings = {
 
 interface ViewportState {
   containerSize: ContainerSize
+  renderMode: RenderMode
   ssfrBlurSettings: SsfrBlurSettings
+  setRenderMode: (renderMode: RenderMode) => void
   setSsfrBlurSettings: (ssfrBlurSettings: SsfrBlurSettings) => void
   setVisualizationMode: (visualizationMode: VisualizationMode) => void
   showHelpers: boolean
@@ -39,6 +42,8 @@ interface ViewportState {
 
 export const useViewportStore = create<ViewportState>((set) => ({
   containerSize: DEFAULT_CONTAINER_SIZE,
+  renderMode: 'fluid',
+  setRenderMode: (renderMode) => set({ renderMode }),
   ssfrBlurSettings: DEFAULT_SSFR_BLUR_SETTINGS,
   setSsfrBlurSettings: (ssfrBlurSettings) => set({ ssfrBlurSettings }),
   setVisualizationMode: (visualizationMode) => set({ visualizationMode }),
@@ -49,6 +54,7 @@ export const useViewportStore = create<ViewportState>((set) => ({
   reset: () =>
     set({
       containerSize: DEFAULT_CONTAINER_SIZE,
+      renderMode: 'fluid',
       ssfrBlurSettings: DEFAULT_SSFR_BLUR_SETTINGS,
       showHelpers: appDefaults.showHelpers,
       visualizationMode: 'speed',

@@ -272,6 +272,8 @@ function ControlPanelBody({
   onWebmCaptureFramerateChange,
 }: ControlPanelBodyProps) {
   const showHelpers = useViewportStore((state) => state.showHelpers)
+  const renderMode = useViewportStore((state) => state.renderMode)
+  const setRenderMode = useViewportStore((state) => state.setRenderMode)
   const setVisualizationMode = useViewportStore(
     (state) => state.setVisualizationMode,
   )
@@ -998,6 +1000,21 @@ function ControlPanelBody({
             </div>
             <label className="space-y-2">
               <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                Render mode
+              </span>
+              <select
+                className="flex h-10 w-full rounded-md border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-sky-400/60"
+                onChange={(event) =>
+                  setRenderMode(event.target.value as 'fluid' | 'particles')
+                }
+                value={renderMode}
+              >
+                <option value="fluid">SSFR fluid surface</option>
+                <option value="particles">Instanced particle spheres</option>
+              </select>
+            </label>
+            <label className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                 Particle color mode
               </span>
               <select
@@ -1015,8 +1032,9 @@ function ControlPanelBody({
               </select>
             </label>
             <p className="mt-3 text-xs leading-5 text-slate-400">
-              Instance colors are derived from the worker&apos;s latest particle
-              frame, so mode switches update immediately without restarting the
+              Switch between the legacy instanced-sphere view and the SSFR fluid
+              surface. Particle colors still come from the worker&apos;s latest
+              frame, so both render modes update without restarting the
               simulation.
             </p>
           </div>
