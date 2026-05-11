@@ -32,6 +32,7 @@ export function HelloCubeCanvas({
   const emitter = scene.emitter
   const obstacles = scene.obstacles
   const initialFluid = scene.initialFluid
+  const simParams = scene.simParams
 
   const handleContainerRef = (node: HTMLDivElement | null) => {
     if (node === containerRef.current) {
@@ -103,6 +104,10 @@ export function HelloCubeCanvas({
   useEffect(() => {
     controllerRef.current?.setInitialFluid(initialFluid)
   }, [initialFluid])
+
+  useEffect(() => {
+    controllerRef.current?.setSimulationParams(simParams)
+  }, [simParams])
 
   useEffect(() => {
     controllerRef.current?.setSimulationSpeed(simulationSpeed)

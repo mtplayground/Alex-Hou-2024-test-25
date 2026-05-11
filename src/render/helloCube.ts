@@ -44,6 +44,7 @@ export interface HelloCubeController {
   setInitialFluid: (initialFluid: InitialFluidBlock | undefined) => void
   setObstacles: (obstacles: SceneObstacle[]) => void
   setRotationSpeed: (rotationSpeed: number) => void
+  setSimulationParams: (simParams: SimParams) => void
   setSimulationSpeed: (simulationSpeed: number) => void
   stepSimulation: () => void
 }
@@ -200,7 +201,7 @@ export function createHelloCube(
   let activeEmitter = initialState.emitter
   let activeInitialFluid = initialState.initialFluid
   let activeObstacles = initialState.obstacles
-  const activeSimParams = initialState.simParams
+  let activeSimParams = initialState.simParams
   let simulationRunning = false
   let simulationSpeed = initialState.simulationSpeed
   let simulationSeed = buildSimulationSeed(
@@ -411,6 +412,17 @@ export function createHelloCube(
     },
     setRotationSpeed: (nextRotationSpeed) => {
       rotationSpeed = nextRotationSpeed
+    },
+    setSimulationParams: (nextSimParams) => {
+      activeSimParams = nextSimParams
+      simulationClient.updateParams({
+        ...nextSimParams,
+        containerSize: [
+          activeContainerSize.width,
+          activeContainerSize.height,
+          activeContainerSize.depth,
+        ],
+      })
     },
     setSimulationSpeed: (nextSimulationSpeed) => {
       simulationSpeed = nextSimulationSpeed
