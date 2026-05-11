@@ -210,8 +210,10 @@ interface ControlPanelBodyProps {
   onPauseSimulation: () => void
   onPlaySimulation: () => void
   onStartPngCapture: () => void
+  onStartWebmCapture: (framerate: number) => void
   onResetSimulation: () => void
   onStopPngCapture: () => void
+  onStopWebmCapture: () => void
   onStepSimulation: () => void
   pngCaptureActive: boolean
   pngCaptureBusy: boolean
@@ -219,6 +221,10 @@ interface ControlPanelBodyProps {
   onSimulationSpeedChange: (value: number) => void
   simulationRunning: boolean
   simulationSpeed: number
+  webmCaptureActive: boolean
+  webmCaptureBusy: boolean
+  webmCaptureFramerate: number
+  onWebmCaptureFramerateChange: (value: number) => void
 }
 
 function ControlPanelBody({
@@ -226,8 +232,10 @@ function ControlPanelBody({
   onPauseSimulation,
   onPlaySimulation,
   onStartPngCapture,
+  onStartWebmCapture,
   onResetSimulation,
   onStopPngCapture,
+  onStopWebmCapture,
   onStepSimulation,
   pngCaptureActive,
   pngCaptureBusy,
@@ -235,6 +243,10 @@ function ControlPanelBody({
   onSimulationSpeedChange,
   simulationRunning,
   simulationSpeed,
+  webmCaptureActive,
+  webmCaptureBusy,
+  webmCaptureFramerate,
+  onWebmCaptureFramerateChange,
 }: ControlPanelBodyProps) {
   const rotationSpeed = useHelloCubeStore((state) => state.rotationSpeed)
   const showHelpers = useHelloCubeStore((state) => state.showHelpers)
@@ -553,6 +565,21 @@ function ControlPanelBody({
                 {pngCaptureActive ? 'Stop PNG capture' : 'Start PNG capture'}
                 <Download className="size-4" />
               </Button>
+              <Button
+                disabled={!hasSimulationController || webmCaptureBusy}
+                onClick={() => {
+                  if (webmCaptureActive) {
+                    onStopWebmCapture()
+                    return
+                  }
+
+                  onStartWebmCapture(webmCaptureFramerate)
+                }}
+                variant="secondary"
+              >
+                {webmCaptureActive ? 'Stop WebM export' : 'Start WebM export'}
+                <Waves className="size-4" />
+              </Button>
             </div>
             <div className="mt-4 space-y-3">
               <div className="flex items-center justify-between text-sm text-slate-300">
@@ -578,6 +605,28 @@ function ControlPanelBody({
                     ? `Capturing PNG frames: ${String(pngCaptureFrameCount)}`
                     : 'Capture the viewport canvas into PNG frames and download them as a zip.'}
               </p>
+              <div className="space-y-3 rounded-xl border border-white/10 bg-black/20 p-3">
+                <div className="flex items-center justify-between text-sm text-slate-300">
+                  <span>WebM framerate</span>
+                  <span>{webmCaptureFramerate} fps</span>
+                </div>
+                <Slider
+                  max={60}
+                  min={12}
+                  onValueChange={(value) =>
+                    onWebmCaptureFramerateChange(value[0] ?? 30)
+                  }
+                  step={1}
+                  value={[webmCaptureFramerate]}
+                />
+                <p className="text-xs leading-5 text-slate-400">
+                  {webmCaptureBusy
+                    ? 'Finalizing the recorded WebM file for download.'
+                    : webmCaptureActive
+                      ? `Recording WebM at ${String(webmCaptureFramerate)} fps.`
+                      : 'Record the live viewport to a WebM video with MediaRecorder.'}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -1220,6 +1269,9 @@ export function AppShell() {
   const [pngCaptureActive, setPngCaptureActive] = useState(false)
   const [pngCaptureBusy, setPngCaptureBusy] = useState(false)
   const [pngCaptureFrameCount, setPngCaptureFrameCount] = useState(0)
+  const [webmCaptureActive, setWebmCaptureActive] = useState(false)
+  const [webmCaptureBusy, setWebmCaptureBusy] = useState(false)
+  const [webmCaptureFramerate, setWebmCaptureFramerate] = useState(30)
   const [simulationRunning, setSimulationRunning] = useState(true)
   const [simulationSpeed, setSimulationSpeed] = useState(1)
   const scene = useSceneStore((state) => state.scene)
@@ -1233,6 +1285,8 @@ export function AppShell() {
       setPngCaptureActive(false)
       setPngCaptureBusy(false)
       setPngCaptureFrameCount(0)
+      setWebmCaptureActive(false)
+      setWebmCaptureBusy(false)
       setSimulationRunning(false)
     }
   }
@@ -1249,6 +1303,21 @@ export function AppShell() {
     setPngCaptureBusy(true)
     void simulationController.stopPngCapture().finally(() => {
       setPngCaptureBusy(false)
+    })
+  }
+
+  const handleStartWebmCapture = (framerate: number) => {
+    simulationController?.startWebmCapture(framerate)
+  }
+
+  const handleStopWebmCapture = () => {
+    if (simulationController === null) {
+      return
+    }
+
+    setWebmCaptureBusy(true)
+    void simulationController.stopWebmCapture().finally(() => {
+      setWebmCaptureBusy(false)
     })
   }
 
@@ -1380,6 +1449,12 @@ export function AppShell() {
                     setPngCaptureFrameCount(state.frameCount)
                   }}
                   onSimulationReadyChange={setSimulationRunning}
+                  onWebmCaptureChange={(state) => {
+                    setWebmCaptureActive(state.active)
+                    if (state.active) {
+                      setWebmCaptureFramerate(state.framerate)
+                    }
+                  }}
                   simulationSpeed={simulationSpeed}
                 />
               </div>
@@ -1393,15 +1468,23 @@ export function AppShell() {
                     onPauseSimulation={controlActions.pause}
                     onPlaySimulation={controlActions.play}
                     onStartPngCapture={handleStartPngCapture}
+                    onStartWebmCapture={handleStartWebmCapture}
                     onResetSimulation={controlActions.reset}
                     onStopPngCapture={handleStopPngCapture}
+                    onStopWebmCapture={handleStopWebmCapture}
                     onSimulationSpeedChange={setSimulationSpeed}
                     onStepSimulation={controlActions.step}
+                    onWebmCaptureFramerateChange={(value) =>
+                      setWebmCaptureFramerate(Math.max(12, Math.round(value)))
+                    }
                     pngCaptureActive={pngCaptureActive}
                     pngCaptureBusy={pngCaptureBusy}
                     pngCaptureFrameCount={pngCaptureFrameCount}
                     simulationRunning={simulationRunning}
                     simulationSpeed={simulationSpeed}
+                    webmCaptureActive={webmCaptureActive}
+                    webmCaptureBusy={webmCaptureBusy}
+                    webmCaptureFramerate={webmCaptureFramerate}
                   />
                 </div>
               </aside>
@@ -1429,15 +1512,23 @@ export function AppShell() {
                   onPauseSimulation={controlActions.pause}
                   onPlaySimulation={controlActions.play}
                   onStartPngCapture={handleStartPngCapture}
+                  onStartWebmCapture={handleStartWebmCapture}
                   onResetSimulation={controlActions.reset}
                   onStopPngCapture={handleStopPngCapture}
+                  onStopWebmCapture={handleStopWebmCapture}
                   onSimulationSpeedChange={setSimulationSpeed}
                   onStepSimulation={controlActions.step}
+                  onWebmCaptureFramerateChange={(value) =>
+                    setWebmCaptureFramerate(Math.max(12, Math.round(value)))
+                  }
                   pngCaptureActive={pngCaptureActive}
                   pngCaptureBusy={pngCaptureBusy}
                   pngCaptureFrameCount={pngCaptureFrameCount}
                   simulationRunning={simulationRunning}
                   simulationSpeed={simulationSpeed}
+                  webmCaptureActive={webmCaptureActive}
+                  webmCaptureBusy={webmCaptureBusy}
+                  webmCaptureFramerate={webmCaptureFramerate}
                 />
               </div>
             </div>

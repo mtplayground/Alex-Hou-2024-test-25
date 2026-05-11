@@ -32,6 +32,7 @@ interface HelloCubeState {
   onSimulationError?: (message: string) => void
   onSimulationReadyChange: ((running: boolean) => void) | undefined
   onStatsChange?: (stats: HelloCubeStats) => void
+  onWebmCaptureChange?: (state: WebmCaptureState) => void
   rotationSpeed: number
   simParams: SimParams
   simulationSpeed: number
@@ -51,6 +52,11 @@ export interface PngCaptureState {
   frameCount: number
 }
 
+export interface WebmCaptureState {
+  active: boolean
+  framerate: number
+}
+
 export interface HelloCubeController {
   dispose: () => void
   pauseSimulation: () => void
@@ -66,7 +72,9 @@ export interface HelloCubeController {
   setSimulationSpeed: (simulationSpeed: number) => void
   setVisualizationMode: (visualizationMode: VisualizationMode) => void
   startPngCapture: () => void
+  startWebmCapture: (framerate: number) => void
   stopPngCapture: () => Promise<void>
+  stopWebmCapture: () => Promise<void>
   stepSimulation: () => void
 }
 
@@ -79,6 +87,14 @@ interface PngCaptureSession {
   frameCount: number
   pendingCaptures: Set<Promise<void>>
   zip: JSZip
+}
+
+interface WebmCaptureSession {
+  chunks: Blob[]
+  framerate: number
+  mimeType: string
+  recorder: MediaRecorder
+  stream: MediaStream
 }
 
 function disposeMaterial(material: THREE.Material | THREE.Material[]) {
@@ -199,6 +215,11 @@ function createCaptureDownloadName() {
   return `png-frames-${timestamp}.zip`
 }
 
+function createWebmDownloadName() {
+  const timestamp = new Date().toISOString().replaceAll(':', '-')
+  return `viewport-recording-${timestamp}.webm`
+}
+
 function downloadBlob(blob: Blob, fileName: string) {
   const objectUrl = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -208,6 +229,26 @@ function downloadBlob(blob: Blob, fileName: string) {
   link.click()
   link.remove()
   URL.revokeObjectURL(objectUrl)
+}
+
+function getSupportedWebmMimeType(): string | null {
+  if (typeof MediaRecorder === 'undefined') {
+    return null
+  }
+
+  const candidates = [
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm',
+  ]
+
+  for (const candidate of candidates) {
+    if (MediaRecorder.isTypeSupported(candidate)) {
+      return candidate
+    }
+  }
+
+  return null
 }
 
 export function createHelloCube(
@@ -264,6 +305,8 @@ export function createHelloCube(
   let lastFrame: SimulationFrame | null = null
   let captureSession: PngCaptureSession | null = null
   let captureStopping = false
+  let webmCaptureSession: WebmCaptureSession | null = null
+  let webmStopping = false
   let particlePreview = createParticleInstances(
     Math.max(
       simulationSeed.positions.length,
@@ -357,6 +400,13 @@ export function createHelloCube(
     })
   }
 
+  const publishWebmCaptureState = () => {
+    initialState.onWebmCaptureChange?.({
+      active: webmCaptureSession !== null,
+      framerate: webmCaptureSession?.framerate ?? 0,
+    })
+  }
+
   const capturePngFrame = () => {
     if (captureSession === null || captureStopping) {
       return
@@ -411,6 +461,58 @@ export function createHelloCube(
     }
   }
 
+  const stopWebmCaptureSession = async () => {
+    if (webmCaptureSession === null || webmStopping) {
+      return
+    }
+
+    webmStopping = true
+    const activeSession = webmCaptureSession
+    webmCaptureSession = null
+    publishWebmCaptureState()
+
+    try {
+      if (activeSession.recorder.state !== 'inactive') {
+        await new Promise<void>((resolve, reject) => {
+          const handleStop = () => {
+            resolve()
+          }
+          const handleError = (event: Event) => {
+            const recorderError = event as ErrorEvent
+            reject(
+              new Error(
+                recorderError.message ||
+                  'The MediaRecorder session ended with an unknown error.',
+              ),
+            )
+          }
+
+          activeSession.recorder.addEventListener('stop', handleStop, {
+            once: true,
+          })
+          activeSession.recorder.addEventListener('error', handleError, {
+            once: true,
+          })
+          activeSession.recorder.stop()
+        })
+      }
+
+      const videoBlob = new Blob(activeSession.chunks, {
+        type: activeSession.mimeType,
+      })
+      downloadBlob(videoBlob, createWebmDownloadName())
+    } catch (error) {
+      initialState.onSimulationError?.(
+        error instanceof Error ? error.message : 'WebM capture failed.',
+      )
+    } finally {
+      activeSession.stream.getTracks().forEach((track) => {
+        track.stop()
+      })
+      webmStopping = false
+    }
+  }
+
   const simulationClient = new SimulationClient()
   const unsubscribeFrames = simulationClient.subscribeToFrames((frame) => {
     lastFrame = frame
@@ -459,6 +561,7 @@ export function createHelloCube(
 
   let rotationSpeed = initialState.rotationSpeed
   publishCaptureState()
+  publishWebmCaptureState()
   viewport.start((deltaSeconds) => {
     cube.rotation.y += rotationSpeed
     cube.rotation.x += rotationSpeed * 0.5
@@ -478,6 +581,7 @@ export function createHelloCube(
   return {
     dispose: () => {
       void stopCaptureSession()
+      void stopWebmCaptureSession()
       scene.remove(
         cube,
         containerWireframe,
@@ -525,6 +629,68 @@ export function createHelloCube(
         zip: new JSZip(),
       }
       publishCaptureState()
+    },
+    startWebmCapture: (framerate) => {
+      if (webmCaptureSession !== null || webmStopping) {
+        return
+      }
+
+      if (typeof MediaRecorder === 'undefined') {
+        initialState.onSimulationError?.(
+          'WebM export is not supported in this browser context.',
+        )
+        return
+      }
+
+      if (typeof viewport.renderer.domElement.captureStream !== 'function') {
+        initialState.onSimulationError?.(
+          'Canvas stream capture is not supported in this browser context.',
+        )
+        return
+      }
+
+      const mimeType = getSupportedWebmMimeType()
+
+      if (mimeType === null) {
+        initialState.onSimulationError?.(
+          'This browser does not support a WebM MediaRecorder configuration.',
+        )
+        return
+      }
+
+      const safeFramerate = Math.max(1, Math.round(framerate))
+      const stream = viewport.renderer.domElement.captureStream(safeFramerate)
+
+      try {
+        const chunks: Blob[] = []
+        const recorder = new MediaRecorder(stream, { mimeType })
+        recorder.addEventListener('dataavailable', (event) => {
+          if (event.data.size > 0) {
+            chunks.push(event.data)
+          }
+        })
+        recorder.addEventListener('error', (event) => {
+          initialState.onSimulationError?.(
+            event.message || 'WebM recording failed.',
+          )
+        })
+        recorder.start(250)
+        webmCaptureSession = {
+          chunks,
+          framerate: safeFramerate,
+          mimeType,
+          recorder,
+          stream,
+        }
+        publishWebmCaptureState()
+      } catch (error) {
+        stream.getTracks().forEach((track) => {
+          track.stop()
+        })
+        initialState.onSimulationError?.(
+          error instanceof Error ? error.message : 'WebM recording failed.',
+        )
+      }
     },
     stepSimulation: () => {
       simulationClient.step(simulationStepDt())
@@ -626,5 +792,6 @@ export function createHelloCube(
       }
     },
     stopPngCapture: () => stopCaptureSession(),
+    stopWebmCapture: () => stopWebmCaptureSession(),
   }
 }

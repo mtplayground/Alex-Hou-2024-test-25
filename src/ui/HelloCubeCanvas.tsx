@@ -12,6 +12,7 @@ import {
   type HelloCubeController,
   type HelloCubeStats,
   type PngCaptureState,
+  type WebmCaptureState,
 } from '@/render/helloCube'
 import { useHelloCubeStore } from '@/store/helloCubeStore'
 import { useSceneStore } from '@/store'
@@ -20,6 +21,7 @@ interface HelloCubeCanvasProps {
   onControllerChange?: (controller: HelloCubeController | null) => void
   onPngCaptureChange?: (state: PngCaptureState) => void
   onSimulationReadyChange?: (running: boolean) => void
+  onWebmCaptureChange?: (state: WebmCaptureState) => void
   simulationSpeed?: number
 }
 
@@ -27,6 +29,7 @@ export function HelloCubeCanvas({
   onControllerChange,
   onPngCaptureChange,
   onSimulationReadyChange,
+  onWebmCaptureChange,
   simulationSpeed = 1,
 }: HelloCubeCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -77,6 +80,7 @@ export function HelloCubeCanvas({
         onSimulationError: setError,
         onSimulationReadyChange: onSimulationReadyChange ?? undefined,
         onStatsChange: setStats,
+        ...(onWebmCaptureChange === undefined ? {} : { onWebmCaptureChange }),
         rotationSpeed: initialState.rotationSpeed,
         simParams: sceneState.simParams,
         simulationSpeed,
