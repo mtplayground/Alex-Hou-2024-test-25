@@ -15,7 +15,7 @@ export function HelloCubeCanvas() {
   const controllerRef = useRef<HelloCubeController | null>(null)
   const [error, setError] = useState<string | null>(null)
   const rotationSpeed = useHelloCubeStore((state) => state.rotationSpeed)
-  const showAxes = useHelloCubeStore((state) => state.showAxes)
+  const showHelpers = useHelloCubeStore((state) => state.showHelpers)
 
   const handleContainerRef = (node: HTMLDivElement | null) => {
     if (node === containerRef.current) {
@@ -35,7 +35,7 @@ export function HelloCubeCanvas() {
 
       controllerRef.current = createHelloCube(node, {
         rotationSpeed: initialState.rotationSpeed,
-        showAxes: initialState.showAxes,
+        showHelpers: initialState.showHelpers,
       })
       setError(null)
     } catch (caughtError) {
@@ -52,16 +52,17 @@ export function HelloCubeCanvas() {
   }, [rotationSpeed])
 
   useEffect(() => {
-    controllerRef.current?.setAxesVisible(showAxes)
-  }, [showAxes])
+    controllerRef.current?.setHelpersVisible(showHelpers)
+  }, [showHelpers])
 
   return (
     <Card className="overflow-hidden border-white/10 bg-slate-950/40 shadow-2xl shadow-slate-950/20 backdrop-blur-sm">
       <CardHeader className="border-b border-white/10">
         <CardTitle className="text-white">Hello-Cube smoke test</CardTitle>
         <CardDescription>
-          A minimal Three.js scene renders a rotating cube and origin axes with
-          OrbitControls, resize handling, and a dedicated animation loop.
+          A minimal Three.js scene renders a rotating cube, XYZ axes, and an XZ
+          grid with OrbitControls, resize handling, and a dedicated animation
+          loop.
         </CardDescription>
       </CardHeader>
       <CardContent className="p-0">

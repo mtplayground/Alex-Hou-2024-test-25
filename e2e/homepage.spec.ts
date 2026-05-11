@@ -5,7 +5,7 @@ test('loads the homepage smoke scene', async ({ page }) => {
 
   await expect(
     page.getByRole('heading', {
-      name: /Three\.js is integrated with a live Hello-Cube smoke scene\./i,
+      name: /Three\.js now renders an orbitable cube with axes and a grid\./i,
     }),
   ).toBeVisible()
   await expect(

@@ -3,13 +3,22 @@ import { createThreeViewport } from '@/render/threeViewport'
 
 interface HelloCubeState {
   rotationSpeed: number
-  showAxes: boolean
+  showHelpers: boolean
 }
 
 export interface HelloCubeController {
   dispose: () => void
-  setAxesVisible: (showAxes: boolean) => void
+  setHelpersVisible: (showHelpers: boolean) => void
   setRotationSpeed: (rotationSpeed: number) => void
+}
+
+function disposeMaterial(material: THREE.Material | THREE.Material[]) {
+  if (Array.isArray(material)) {
+    material.forEach((item) => item.dispose())
+    return
+  }
+
+  material.dispose()
 }
 
 export function createHelloCube(
@@ -44,8 +53,10 @@ export function createHelloCube(
   scene.add(cube)
 
   const axesHelper = new THREE.AxesHelper(1.7)
-  axesHelper.visible = initialState.showAxes
-  scene.add(axesHelper)
+  const gridHelper = new THREE.GridHelper(8, 8, 0xef4444, 0x334155)
+  axesHelper.visible = initialState.showHelpers
+  gridHelper.visible = initialState.showHelpers
+  scene.add(axesHelper, gridHelper)
 
   let rotationSpeed = initialState.rotationSpeed
   viewport.start(() => {
@@ -55,13 +66,17 @@ export function createHelloCube(
 
   return {
     dispose: () => {
-      scene.remove(cube, axesHelper, ambientLight, directionalLight)
+      scene.remove(cube, axesHelper, gridHelper, ambientLight, directionalLight)
       cube.geometry.dispose()
-      cube.material.dispose()
+      axesHelper.geometry.dispose()
+      gridHelper.geometry.dispose()
+      disposeMaterial(cube.material)
+      disposeMaterial(gridHelper.material)
       viewport.dispose()
     },
-    setAxesVisible: (showAxes) => {
-      axesHelper.visible = showAxes
+    setHelpersVisible: (showHelpers) => {
+      axesHelper.visible = showHelpers
+      gridHelper.visible = showHelpers
     },
     setRotationSpeed: (nextRotationSpeed) => {
       rotationSpeed = nextRotationSpeed

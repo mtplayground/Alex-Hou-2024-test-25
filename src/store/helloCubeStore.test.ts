@@ -9,12 +9,12 @@ afterEach(() => {
 describe('useHelloCubeStore', () => {
   it('resets to the configured environment defaults', () => {
     useHelloCubeStore.getState().setRotationSpeed(0.061)
-    useHelloCubeStore.getState().toggleAxes()
+    useHelloCubeStore.getState().toggleHelpers()
 
     useHelloCubeStore.getState().reset()
     const nextState = useHelloCubeStore.getState()
 
     expect(nextState.rotationSpeed).toBe(appDefaults.rotationSpeed)
-    expect(nextState.showAxes).toBe(appDefaults.showAxes)
+    expect(nextState.showHelpers).toBe(appDefaults.showHelpers)
   })
 })
