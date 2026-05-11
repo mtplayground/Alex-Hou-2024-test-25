@@ -82,3 +82,5 @@ Issue #16 adds a top-level `Simulation` class that initializes particle state, r
 Issue #17 adds the worker-side message protocol plus a simulation host that processes control commands and transfers `Float32Array` position frames back to the main thread.
 
 Issue #18 adds a main-thread `SimulationClient` wrapper that spawns the worker, sends typed control messages, and exposes frame/error/ready subscriptions for incoming worker events.
+
+Issue #19 connects those worker frames to the Three.js smoke scene, updating instanced particle geometry from transferred position buffers every render cycle.

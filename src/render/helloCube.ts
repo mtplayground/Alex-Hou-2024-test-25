@@ -2,10 +2,17 @@ import type { ContainerSize } from '@/store/helloCubeStore'
 import * as THREE from 'three'
 import { createSceneLighting } from '@/render/lighting'
 import { createCubeMaterial, createParticleMaterial } from '@/render/materials'
+import {
+  buildSimulationPreviewPositions,
+  createParticleInstances,
+  updateParticleInstances,
+} from '@/render/particles'
 import { createThreeViewport } from '@/render/threeViewport'
+import { SimulationClient } from '@/workers'
 
 interface HelloCubeState {
   containerSize: ContainerSize
+  onSimulationError?: (message: string) => void
   rotationSpeed: number
   showHelpers: boolean
 }
@@ -49,39 +56,24 @@ function createContainerWireframe(
   return containerWireframe
 }
 
-function createParticlePreview(
+function initializeSimulationClient(
+  client: SimulationClient,
   containerSize: ContainerSize,
-  material: THREE.MeshStandardMaterial,
-): THREE.InstancedMesh {
-  const particleGeometry = new THREE.SphereGeometry(0.12, 20, 20)
-  const previewPositions: [number, number, number][] = [
-    [-0.6, 0.55, -0.55],
-    [-0.2, 0.75, -0.1],
-    [0.2, 0.95, 0.25],
-    [0.55, 0.65, -0.3],
-    [-0.45, 1.15, 0.45],
-    [0.05, 1.35, -0.45],
-    [0.45, 1.05, 0.4],
-    [0.75, 0.85, 0.05],
-  ]
-  const particlePreview = new THREE.InstancedMesh(
-    particleGeometry,
-    material,
-    previewPositions.length,
-  )
-  const transform = new THREE.Matrix4()
-
-  previewPositions.forEach(([x, y, z], index) => {
-    transform.makeTranslation(
-      x * containerSize.width * 0.35,
-      Math.min(y, containerSize.height * 0.82),
-      z * containerSize.depth * 0.35,
-    )
-    particlePreview.setMatrixAt(index, transform)
+): void {
+  client.init({
+    params: {
+      containerSize: [
+        containerSize.width,
+        containerSize.height,
+        containerSize.depth,
+      ],
+      gravity: [0, -9.81, 0],
+      particleMass: 0,
+      viscosity: 0,
+    },
+    positions: buildSimulationPreviewPositions(containerSize),
   })
-
-  particlePreview.instanceMatrix.needsUpdate = true
-  return particlePreview
+  client.start(1 / 60)
 }
 
 export function createHelloCube(
@@ -114,11 +106,24 @@ export function createHelloCube(
   scene.add(containerWireframe)
 
   const particleMaterial = createParticleMaterial()
-  let particlePreview = createParticlePreview(
+  const previewPositions = buildSimulationPreviewPositions(
     initialState.containerSize,
+  )
+  let activeContainerSize = initialState.containerSize
+  const particlePreview = createParticleInstances(
+    previewPositions.length,
     particleMaterial,
   )
   scene.add(particlePreview)
+
+  const simulationClient = new SimulationClient()
+  const unsubscribeFrames = simulationClient.subscribeToFrames((positions) => {
+    updateParticleInstances(particlePreview, positions, activeContainerSize)
+  })
+  const unsubscribeErrors = simulationClient.subscribeToErrors((message) => {
+    initialState.onSimulationError?.(message)
+  })
+  initializeSimulationClient(simulationClient, initialState.containerSize)
 
   const axesHelper = new THREE.AxesHelper(1.7)
   const gridHelper = new THREE.GridHelper(8, 8, 0xef4444, 0x334155)
@@ -141,6 +146,9 @@ export function createHelloCube(
         axesHelper,
         gridHelper,
       )
+      unsubscribeFrames()
+      unsubscribeErrors()
+      simulationClient.destroy()
       lighting.dispose()
       cube.geometry.dispose()
       axesHelper.geometry.dispose()
@@ -154,20 +162,15 @@ export function createHelloCube(
       viewport.dispose()
     },
     setContainerSize: (nextContainerSize) => {
+      activeContainerSize = nextContainerSize
       scene.remove(containerWireframe)
-      scene.remove(particlePreview)
       containerWireframe.geometry.dispose()
-      particlePreview.geometry.dispose()
       disposeMaterial(containerWireframe.material)
       containerWireframe = createContainerWireframe(nextContainerSize)
-      particlePreview = createParticlePreview(
-        nextContainerSize,
-        particleMaterial,
-      )
       scene.add(containerWireframe)
-      scene.add(particlePreview)
       controls.target.y = nextContainerSize.height * 0.45
       controls.update()
+      initializeSimulationClient(simulationClient, nextContainerSize)
     },
     setHelpersVisible: (showHelpers) => {
       axesHelper.visible = showHelpers
