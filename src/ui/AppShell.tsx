@@ -1,5 +1,5 @@
 import type { ChangeEvent } from 'react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Boxes,
   ChevronLeft,
@@ -521,6 +521,7 @@ function ControlPanelBody({
             </div>
             <div className="flex flex-wrap gap-2">
               <Button
+                data-testid="simulation-toggle"
                 disabled={!hasSimulationController}
                 onClick={
                   simulationRunning ? onPauseSimulation : onPlaySimulation
@@ -540,6 +541,7 @@ function ControlPanelBody({
                 )}
               </Button>
               <Button
+                data-testid="simulation-step"
                 disabled={!hasSimulationController || simulationRunning}
                 onClick={onStepSimulation}
                 variant="secondary"
@@ -548,6 +550,7 @@ function ControlPanelBody({
                 <StepForward className="size-4" />
               </Button>
               <Button
+                data-testid="simulation-reset"
                 disabled={!hasSimulationController}
                 onClick={onResetSimulation}
                 variant="secondary"
@@ -556,6 +559,7 @@ function ControlPanelBody({
                 <RotateCw className="size-4" />
               </Button>
               <Button
+                data-testid="png-capture-toggle"
                 disabled={!hasSimulationController || pngCaptureBusy}
                 onClick={
                   pngCaptureActive ? onStopPngCapture : onStartPngCapture
@@ -566,6 +570,7 @@ function ControlPanelBody({
                 <Download className="size-4" />
               </Button>
               <Button
+                data-testid="webm-capture-toggle"
                 disabled={!hasSimulationController || webmCaptureBusy}
                 onClick={() => {
                   if (webmCaptureActive) {
@@ -708,6 +713,7 @@ function ControlPanelBody({
                   Width
                 </span>
                 <Input
+                  data-testid="container-width-input"
                   min="1"
                   onChange={updateContainerDimension('width')}
                   step="0.1"
@@ -976,13 +982,18 @@ function ControlPanelBody({
                   Save current scene as
                 </span>
                 <Input
+                  data-testid="preset-name-input"
                   onChange={(event) => setPresetName(event.target.value)}
                   placeholder="Preset name"
                   value={presetName}
                 />
               </label>
               <div className="flex flex-wrap gap-2">
-                <Button className="gap-2" onClick={handleSavePreset}>
+                <Button
+                  className="gap-2"
+                  data-testid="save-preset"
+                  onClick={handleSavePreset}
+                >
                   Save preset
                   <Save className="size-4" />
                 </Button>
@@ -1033,6 +1044,7 @@ function ControlPanelBody({
                   {presets.map((preset) => (
                     <div
                       className="rounded-xl border border-white/10 bg-slate-950/40 p-3"
+                      data-testid={`preset-row-${preset.name}`}
                       key={preset.name}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -1046,6 +1058,7 @@ function ControlPanelBody({
                         </div>
                         <div className="flex shrink-0 gap-2">
                           <Button
+                            data-testid={`preset-load-${preset.name}`}
                             onClick={() => handleLoadPreset(preset.name)}
                             size="sm"
                             variant="secondary"
@@ -1278,18 +1291,21 @@ export function AppShell() {
   const showHelpers = useHelloCubeStore((state) => state.showHelpers)
   const hasSimulationController = simulationController !== null
 
-  const handleControllerChange = (controller: HelloCubeController | null) => {
-    setSimulationController(controller)
+  const handleControllerChange = useCallback(
+    (controller: HelloCubeController | null) => {
+      setSimulationController(controller)
 
-    if (controller === null) {
-      setPngCaptureActive(false)
-      setPngCaptureBusy(false)
-      setPngCaptureFrameCount(0)
-      setWebmCaptureActive(false)
-      setWebmCaptureBusy(false)
-      setSimulationRunning(false)
-    }
-  }
+      if (controller === null) {
+        setPngCaptureActive(false)
+        setPngCaptureBusy(false)
+        setPngCaptureFrameCount(0)
+        setWebmCaptureActive(false)
+        setWebmCaptureBusy(false)
+        setSimulationRunning(false)
+      }
+    },
+    [],
+  )
 
   const handleStartPngCapture = () => {
     simulationController?.startPngCapture()
@@ -1320,6 +1336,24 @@ export function AppShell() {
       setWebmCaptureBusy(false)
     })
   }
+
+  const handlePngCaptureChange = useCallback(
+    (state: { active: boolean; frameCount: number }) => {
+      setPngCaptureActive(state.active)
+      setPngCaptureFrameCount(state.frameCount)
+    },
+    [],
+  )
+
+  const handleWebmCaptureChange = useCallback(
+    (state: { active: boolean; framerate: number }) => {
+      setWebmCaptureActive(state.active)
+      if (state.active) {
+        setWebmCaptureFramerate(state.framerate)
+      }
+    },
+    [],
+  )
 
   const controlActions = useMemo(
     () => ({
@@ -1444,17 +1478,9 @@ export function AppShell() {
               <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-2 shadow-2xl shadow-black/20">
                 <HelloCubeCanvas
                   onControllerChange={handleControllerChange}
-                  onPngCaptureChange={(state) => {
-                    setPngCaptureActive(state.active)
-                    setPngCaptureFrameCount(state.frameCount)
-                  }}
+                  onPngCaptureChange={handlePngCaptureChange}
                   onSimulationReadyChange={setSimulationRunning}
-                  onWebmCaptureChange={(state) => {
-                    setWebmCaptureActive(state.active)
-                    if (state.active) {
-                      setWebmCaptureFramerate(state.framerate)
-                    }
-                  }}
+                  onWebmCaptureChange={handleWebmCaptureChange}
                   simulationSpeed={simulationSpeed}
                 />
               </div>
