@@ -4,6 +4,7 @@ import type { SsfrAppearanceSettings } from '@/store/viewportStore'
 import type { SsfrBlurSettings } from '@/store/viewportStore'
 import type { SsfrDebugView } from '@/store/viewportStore'
 import type { VisualizationMode } from '@/store/viewportStore'
+import type { ViewportCameraPose } from '@/store/viewportStore'
 import JSZip from 'jszip'
 import * as THREE from 'three'
 import {
@@ -32,6 +33,7 @@ import { SimulationClient } from '@/workers'
 import type { SimulationFrame } from '@/workers/SimulationClient'
 
 interface PlaygroundSceneState {
+  cameraPose: ViewportCameraPose
   containerSize: ContainerSize
   emitter: SceneEmitter | undefined
   initialFluid: InitialFluidBlock | undefined
@@ -73,6 +75,7 @@ export interface PlaygroundSceneController {
   pauseSimulation: () => void
   playSimulation: () => void
   resetSimulation: () => void
+  setCameraPose: (cameraPose: ViewportCameraPose) => void
   setContainerSize: (containerSize: ContainerSize) => void
   setEmitter: (emitter: SceneEmitter | undefined) => void
   setHelpersVisible: (showHelpers: boolean) => void
@@ -273,9 +276,9 @@ export function createPlaygroundScene(
 ): PlaygroundSceneController {
   const particleRadius = 0.08
   const viewport = createThreeViewport({
-    cameraPosition: [2.8, 2.4, 3.6],
+    cameraPosition: initialState.cameraPose.position,
     container,
-    target: [0, initialState.containerSize.height * 0.45, 0],
+    target: initialState.cameraPose.target,
   })
   const { controls, scene } = viewport
   controls.maxDistance = 8
@@ -775,6 +778,11 @@ export function createPlaygroundScene(
     },
     stepSimulation: () => {
       simulationClient.step(safeSimulationStepDt())
+    },
+    setCameraPose: (cameraPose) => {
+      viewport.camera.position.set(...cameraPose.position)
+      controls.target.set(...cameraPose.target)
+      controls.update()
     },
     setContainerSize: (nextContainerSize) => {
       activeContainerSize = nextContainerSize

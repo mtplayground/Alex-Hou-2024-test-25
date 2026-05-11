@@ -19,6 +19,8 @@ describe('built-in scenes', () => {
 
     for (const scenePreset of BUILT_IN_SCENES) {
       expect(() => assertValidScene(scenePreset.scene)).not.toThrow()
+      expect(scenePreset.camera.position).toHaveLength(3)
+      expect(scenePreset.camera.target).toHaveLength(3)
     }
   })
 

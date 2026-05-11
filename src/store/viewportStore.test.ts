@@ -8,6 +8,10 @@ afterEach(() => {
 
 describe('useViewportStore', () => {
   it('resets to the configured environment defaults', () => {
+    useViewportStore.getState().setCameraPose({
+      position: [8, 6, 7],
+      target: [3, 2, 1],
+    })
     useViewportStore.getState().setContainerSize({
       depth: 5.5,
       height: 4,
@@ -36,6 +40,10 @@ describe('useViewportStore', () => {
       depth: 4.5,
       height: 3,
       width: 4.5,
+    })
+    expect(nextState.cameraPose).toEqual({
+      position: [4.9, 2.8, 6.1],
+      target: [2.4, 1.2, 2.3],
     })
     expect(nextState.renderMode).toBe('fluid')
     expect(nextState.ssfrAppearanceSettings).toEqual({

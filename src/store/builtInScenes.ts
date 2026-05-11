@@ -2,8 +2,10 @@ import { appDefaults } from '@/config/env'
 import { defaultSimParams } from '@/sim/particles'
 import type { Scene } from '@/types/scene'
 import { cloneScene } from './scenePersistence'
+import type { ViewportCameraPose } from './viewportStore'
 
 export interface BuiltInScenePreset {
+  camera: ViewportCameraPose
   description: string
   id: string
   name: string
@@ -19,8 +21,8 @@ const DAM_BREAK_SCENE: Scene = {
     width: 5.6,
   },
   initialFluid: {
-    origin: [0.45, 0.4, 0.7],
-    size: [0.85, 1.15, 0.85],
+    origin: [0.35, 0.35, 0.55],
+    size: [1.15, 1.45, 1.1],
   },
   obstacles: [
     {
@@ -43,7 +45,7 @@ const FOUNTAIN_SCENE: Scene = {
   },
   emitter: {
     direction: [0, 1, 0],
-    particleCap: appDefaults.defaultParticleCount,
+    particleCap: Math.min(appDefaults.defaultParticleCount, 1536),
     position: [2.1, 0.65, 2.1],
     rate: appDefaults.defaultEmitterRate,
     speed: 3.8,
@@ -69,8 +71,8 @@ const DROP_INTO_POOL_SCENE: Scene = {
     width: 5,
   },
   initialFluid: {
-    origin: [1.95, 2.55, 1.95],
-    size: [0.75, 0.65, 0.75],
+    origin: [1.65, 2.35, 1.65],
+    size: [1.1, 0.95, 1.1],
   },
   obstacles: [
     {
@@ -93,6 +95,10 @@ const DROP_INTO_POOL_SCENE: Scene = {
 
 export const BUILT_IN_SCENES: BuiltInScenePreset[] = [
   {
+    camera: {
+      position: [4.9, 2.8, 6.1],
+      target: [2.4, 1.2, 2.3],
+    },
     description:
       'A dense wall of fluid collapses into a wider chamber with a central baffle.',
     id: 'dam-break',
@@ -100,6 +106,10 @@ export const BUILT_IN_SCENES: BuiltInScenePreset[] = [
     scene: DAM_BREAK_SCENE,
   },
   {
+    camera: {
+      position: [5.2, 3.6, 5.1],
+      target: [2.1, 1.4, 2.1],
+    },
     description:
       'A continuous emitter jets upward from a compact basin until it reaches the particle cap.',
     id: 'fountain',
@@ -107,6 +117,10 @@ export const BUILT_IN_SCENES: BuiltInScenePreset[] = [
     scene: FOUNTAIN_SCENE,
   },
   {
+    camera: {
+      position: [5.8, 3.1, 5.4],
+      target: [2.5, 1.05, 2.45],
+    },
     description:
       'A suspended fluid block drops into a shallow obstacle-defined pool to show impact motion.',
     id: 'drop-into-pool',
