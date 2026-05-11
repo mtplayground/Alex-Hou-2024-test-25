@@ -7,6 +7,8 @@ export interface ContainerSize {
   width: number
 }
 
+export type VisualizationMode = 'density' | 'pressure' | 'speed'
+
 const DEFAULT_CONTAINER_SIZE: ContainerSize = {
   depth: 4.5,
   height: 3,
@@ -16,16 +18,19 @@ const DEFAULT_CONTAINER_SIZE: ContainerSize = {
 interface HelloCubeState {
   containerSize: ContainerSize
   rotationSpeed: number
+  setVisualizationMode: (visualizationMode: VisualizationMode) => void
   showHelpers: boolean
   setContainerSize: (nextContainerSize: ContainerSize) => void
   setRotationSpeed: (rotationSpeed: number) => void
   toggleHelpers: () => void
   reset: () => void
+  visualizationMode: VisualizationMode
 }
 
 export const useHelloCubeStore = create<HelloCubeState>((set) => ({
   containerSize: DEFAULT_CONTAINER_SIZE,
   rotationSpeed: appDefaults.rotationSpeed,
+  setVisualizationMode: (visualizationMode) => set({ visualizationMode }),
   showHelpers: appDefaults.showHelpers,
   setContainerSize: (nextContainerSize) =>
     set({ containerSize: nextContainerSize }),
@@ -36,5 +41,7 @@ export const useHelloCubeStore = create<HelloCubeState>((set) => ({
       containerSize: DEFAULT_CONTAINER_SIZE,
       rotationSpeed: appDefaults.rotationSpeed,
       showHelpers: appDefaults.showHelpers,
+      visualizationMode: 'speed',
     }),
+  visualizationMode: 'speed',
 }))

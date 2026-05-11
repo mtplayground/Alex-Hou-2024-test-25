@@ -14,6 +14,7 @@ describe('useHelloCubeStore', () => {
       width: 5,
     })
     useHelloCubeStore.getState().setRotationSpeed(0.061)
+    useHelloCubeStore.getState().setVisualizationMode('pressure')
     useHelloCubeStore.getState().toggleHelpers()
 
     useHelloCubeStore.getState().reset()
@@ -26,5 +27,6 @@ describe('useHelloCubeStore', () => {
     })
     expect(nextState.rotationSpeed).toBe(appDefaults.rotationSpeed)
     expect(nextState.showHelpers).toBe(appDefaults.showHelpers)
+    expect(nextState.visualizationMode).toBe('speed')
   })
 })

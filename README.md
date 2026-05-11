@@ -102,3 +102,5 @@ Issue #26 expands the side panel into a scene editor with container controls, li
 Issue #27 adds a safe simulation-parameter panel for gravity, viscosity, rest density, and particle budget controls, with clamped ranges to reduce unstable configurations.
 
 Issue #28 adds a live HUD overlay to the Three.js viewport for render FPS, simulation step rate, active particle count, and elapsed simulation time.
+
+Issue #29 adds visualization-mode toggles for speed, density, and pressure, with worker-supplied scalar buffers driving per-instance particle coloring in the viewport.

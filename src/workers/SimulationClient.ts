@@ -19,7 +19,14 @@ export interface SimulationClientWorker {
 
 export type SimulationClientWorkerFactory = () => SimulationClientWorker
 
-export type PositionFrameListener = (positions: Float32Array) => void
+export interface SimulationFrame {
+  readonly densities: Float32Array
+  readonly positions: Float32Array
+  readonly pressures: Float32Array
+  readonly speeds: Float32Array
+}
+
+export type PositionFrameListener = (frame: SimulationFrame) => void
 export type SimulationErrorListener = (message: string) => void
 export type SimulationReadyListener = (
   payload: SimulationReadyMessage['payload'],
@@ -37,7 +44,7 @@ function createDefaultWorker(): SimulationClientWorker {
 export class SimulationClient {
   private readonly errorListeners = new Set<SimulationErrorListener>()
 
-  private lastPositions: Float32Array | null = null
+  private lastFrame: SimulationFrame | null = null
 
   private readonly positionListeners = new Set<PositionFrameListener>()
 
@@ -125,8 +132,8 @@ export class SimulationClient {
   subscribeToFrames(listener: PositionFrameListener): () => void {
     this.positionListeners.add(listener)
 
-    if (this.lastPositions) {
-      listener(new Float32Array(this.lastPositions))
+    if (this.lastFrame) {
+      listener(this.cloneFrame(this.lastFrame))
     }
 
     return () => {
@@ -169,7 +176,7 @@ export class SimulationClient {
   }
 
   get positions(): Float32Array | null {
-    return this.lastPositions ? new Float32Array(this.lastPositions) : null
+    return this.lastFrame ? new Float32Array(this.lastFrame.positions) : null
   }
 
   private handleWorkerMessage(message: SimulationWorkerResponse): void {
@@ -200,11 +207,26 @@ export class SimulationClient {
   }
 
   private handlePositions(message: SimulationPositionsMessage): void {
-    this.lastPositions = new Float32Array(message.payload.positions)
-    const snapshot = new Float32Array(this.lastPositions)
+    this.lastFrame = this.cloneFrame(message.payload)
+    const snapshot = this.cloneFrame(this.lastFrame)
 
     this.positionListeners.forEach((listener) => {
-      listener(new Float32Array(snapshot))
+      listener(this.cloneFrame(snapshot))
     })
+  }
+
+  private cloneFrame(
+    frame: SimulationFrame | SimulationPositionsMessage['payload'] | null,
+  ): SimulationFrame {
+    if (frame === null) {
+      throw new Error('Cannot clone an empty simulation frame.')
+    }
+
+    return {
+      densities: new Float32Array(frame.densities),
+      positions: new Float32Array(frame.positions),
+      pressures: new Float32Array(frame.pressures),
+      speeds: new Float32Array(frame.speeds),
+    }
   }
 }
