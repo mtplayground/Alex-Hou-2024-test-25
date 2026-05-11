@@ -1,0 +1,90 @@
+ZeroClaw Architecture Plan
+==========================
+
+Goal
+- Build a browser-based 3D SPH fluid playground with React/TypeScript UI, Three.js rendering, a worker-backed simulation core, local scene presets, and export tooling.
+
+Recommended project structure
+- `src/main.tsx`: app bootstrap.
+- `src/App.tsx`: top-level layout shell composition.
+- `src/lib/utils.ts`: shared UI helpers from shadcn/ui.
+- `src/types/`
+  - `scene.ts`: container, obstacles, emitter, preset, visualization mode.
+  - `simulation.ts`: particle state views, parameter structs, stats, worker messages.
+  - `ui.ts`: control-bar and panel view models if needed.
+- `src/store/`
+  - `sceneStore.ts`: Zustand state for editable scene, sim controls, selected preset, visualization mode.
+- `src/sim/`
+  - `kernels.ts`: poly6, spiky gradient, viscosity laplacian.
+  - `spatialHash.ts`: neighbor lookup grid.
+  - `particles.ts`: particle arrays/buffers and initialization helpers.
+  - `forces.ts`: density, pressure, force accumulation.
+  - `integrator.ts`: semi-implicit Euler + boundary handling.
+  - `Simulation.ts`: orchestration entry point for the solver on the worker side.
+- `src/worker/`
+  - `protocol.ts`: shared message and payload definitions, imported by both main thread and worker.
+  - `simulationWorker.ts`: worker host bridging messages to `Simulation`.
+- `src/render/`
+  - `Renderer.ts`: Three.js renderer/scene/camera/resize lifecycle.
+  - `controls.ts`: OrbitControls setup.
+  - `container.ts`: container wireframe mesh generation/update.
+  - `particles.ts`: particle points or instanced mesh rendering.
+  - `obstacles.ts`: obstacle mesh generation/update.
+  - `lighting.ts`: default light rig and material setup.
+  - `colorModes.ts`: speed/density/pressure visualization mapping.
+- `src/components/`
+  - `layout/`: top bar, side panel, canvas shell.
+  - `controls/`: play/pause/step/reset/speed bar.
+  - `panels/`: scene editor, simulation params, preset manager.
+  - `overlays/`: stats overlay, onboarding, error banners.
+- `src/features/export/`
+  - `capture.ts`: PNG frame capture.
+  - `video.ts`: WebM recording flow and guards.
+- `src/presets/`
+  - `defaultScenes.ts`: shipped scenes and onboarding defaults.
+  - `storage.ts`: localStorage serialization/import/export helpers.
+- `src/test/`: shared test helpers.
+- `e2e/`: Playwright specs for happy path and export flow.
+
+Shared type strategy
+- Keep `src/types/scene.ts` and `src/types/simulation.ts` framework-agnostic and serializable.
+- Prefer plain objects and typed arrays at the simulation boundary.
+- Define worker protocol once in `src/worker/protocol.ts` and reuse it from worker, client, and tests to avoid drift.
+- Store authoritative editable scene state in Zustand; derive render state and worker inputs from selectors/adapters instead of duplicating shape.
+
+Core design decisions
+- Simulation runs off the main thread in a Web Worker beginning with issue #17; earlier simulation modules should already avoid DOM/React dependencies so they drop into the worker without refactor.
+- Use structure-of-arrays for particle state (`Float32Array`/`Uint32Array`) instead of arrays of objects. This keeps neighbor search, density/force passes, and worker transfer efficient.
+- Treat scene description separately from runtime particle buffers. Scene data is durable/serializable; particle buffers are ephemeral runtime state.
+- Use a single `SimulationClient` abstraction on the main thread to hide worker lifecycle, stepping, reset, and state snapshots.
+- Start rendering particles with `THREE.Points` for the smoke path; keep the render adapter isolated so later instanced spheres remain possible without changing the simulation API.
+- Use conservative parameter clamping and particle-count safety rails in store selectors and worker validation, not only in UI inputs.
+- Keep export features layered on top of the existing renderer/canvas rather than introducing a second render path.
+
+Issue dependency map
+- Foundation: #1 -> #2 -> #3 -> #4 -> #5.
+- Rendering base: #6 -> #7 -> #8 -> #9.
+- Simulation core: #10 -> #11 -> #12 -> #13 -> #14 -> #15 -> #16.
+- Worker integration: #17 -> #18 -> #19.
+- App state and scene model: #20.
+- Scene content features: #21 -> #22 -> #23.
+- UI shell and controls: #24 -> #25 -> #26 -> #27 -> #28 -> #29.
+- Persistence/export: #30 -> #31 -> #32 -> #33.
+- End-to-end coverage: #34 and #35 after their respective features land.
+- Polish/documentation: #36 -> #37 -> #38.
+
+Cross-cutting implementation notes
+- Issue #20 should reconcile the earlier worker/client APIs with the UI control model; do not let UI components talk directly to Three.js or worker objects.
+- Issue #21 should reuse obstacle geometry definitions for both rendering and collision to prevent divergence.
+- Issue #30 should serialize only durable scene + parameter state, never transient worker buffers.
+- Issue #34 and #35 should rely on stable `data-testid` hooks introduced with the relevant UI features rather than retrofitting selectors later.
+- Issue #37 should centralize validation utilities so UI forms, preset import, and worker messages all enforce the same limits.
+
+Suggested acceptance direction for future sessions
+- Each issue should preserve compile-and-run behavior, even when a feature is only a scaffold.
+- Public boundaries likely to survive the full project:
+  - `SceneState` / `ScenePreset`
+  - `SimulationParams`
+  - `SimulationSnapshot`
+  - `WorkerRequest` / `WorkerResponse`
+  - `SimulationClient`
