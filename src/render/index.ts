@@ -2,5 +2,5 @@ export const renderModuleSummary = {
   path: 'src/render',
   title: 'Rendering layer',
   description:
-    'Three.js renderer, scene graph, camera, helpers, and particle visualization will live here.',
+    'Three.js setup now boots a rotating cube smoke scene here, and later issues can expand it into the full fluid renderer.',
 }
