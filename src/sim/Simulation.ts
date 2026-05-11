@@ -7,6 +7,13 @@ import {
   ParticleBuffer,
   type SimParams,
 } from '@/sim/particles'
+import {
+  assertFiniteParticleBuffer,
+  clampNumber,
+  sanitizeSimParams,
+  sanitizeSimulationEmitter,
+  sanitizeTimeStep,
+} from '@/sim/safety'
 
 export interface SimulationEmitter {
   readonly cap: number
@@ -35,12 +42,15 @@ function cloneVectorList(vectors: readonly Vec3[]): Vec3[] {
 }
 
 function mergeSimParams(overrides?: Partial<SimParams>): SimParams {
-  return {
-    ...defaultSimParams,
-    ...overrides,
-    containerSize: overrides?.containerSize ?? defaultSimParams.containerSize,
-    gravity: overrides?.gravity ?? defaultSimParams.gravity,
-  }
+  return sanitizeSimParams(
+    {
+      ...defaultSimParams,
+      ...overrides,
+      containerSize: overrides?.containerSize ?? defaultSimParams.containerSize,
+      gravity: overrides?.gravity ?? defaultSimParams.gravity,
+    },
+    defaultSimParams,
+  )
 }
 
 function cloneObstacles(
@@ -77,19 +87,6 @@ function buildVelocitySnapshot(
   return cloneVectorList(velocities)
 }
 
-function cloneEmitter(emitter: SimulationEmitter): SimulationEmitter {
-  return {
-    cap: emitter.cap,
-    position: [...emitter.position] as Vec3,
-    rate: emitter.rate,
-    velocity: [...emitter.velocity] as Vec3,
-  }
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max)
-}
-
 export class Simulation {
   private emissionAccumulator = 0
 
@@ -122,19 +119,9 @@ export class Simulation {
       positions.length,
       config.velocities,
     )
-    const emitter = config.emitter ? cloneEmitter(config.emitter) : null
-
-    if (emitter !== null) {
-      if (!Number.isInteger(emitter.cap) || emitter.cap <= 0) {
-        throw new RangeError(
-          'Simulation emitter cap must be a positive integer.',
-        )
-      }
-
-      if (emitter.rate < 0) {
-        throw new RangeError('Simulation emitter rate must be non-negative.')
-      }
-    }
+    const emitter = config.emitter
+      ? sanitizeSimulationEmitter(config.emitter, params.containerSize)
+      : null
 
     const particles = new ParticleBuffer(
       Math.max(positions.length, emitter?.cap ?? 0),
@@ -161,6 +148,7 @@ export class Simulation {
       ? cloneObstacles(config.obstacles)
       : []
     this.particles = particles
+    assertFiniteParticleBuffer('init', particles)
   }
 
   get positions(): Float32Array {
@@ -238,20 +226,32 @@ export class Simulation {
     const particles = assertInitialized(this.particles, 'particle buffer')
     const params = assertInitialized(this.params, 'params')
 
-    if (dt < 0) {
-      throw new RangeError('Simulation step dt must be non-negative.')
+    if (!Number.isFinite(dt) || dt < 0) {
+      throw new RangeError(
+        'Simulation step dt must be a finite non-negative value.',
+      )
     }
+
+    const safeDt = dt === 0 ? 0 : sanitizeTimeStep(dt, params.timeStep)
 
     const stepParams: SimParams = {
       ...params,
-      timeStep: dt,
+      timeStep: safeDt,
+    }
+
+    if (safeDt === 0) {
+      return
     }
 
     this.emitParticles(stepParams)
+    assertFiniteParticleBuffer('emission', particles)
     computeDensityPressure(particles, stepParams)
+    assertFiniteParticleBuffer('density-pressure pass', particles)
     accumulateForces(particles, stepParams)
+    assertFiniteParticleBuffer('force pass', particles)
     integrateParticles(particles, stepParams, this.initialObstacles)
-    this.elapsedTime += dt
+    assertFiniteParticleBuffer('integration pass', particles)
+    this.elapsedTime += safeDt
   }
 
   updateParams(overrides: Partial<SimParams>): void {
@@ -296,9 +296,21 @@ export class Simulation {
       const jitterRadius = params.smoothingLength * 0.08
       const offset = this.resolveEmitterJitter(spawnSerial, jitterRadius)
       const position: Vec3 = [
-        clamp(emitter.position[0] + offset[0], 0, params.containerSize[0]),
-        clamp(emitter.position[1] + offset[1], 0, params.containerSize[1]),
-        clamp(emitter.position[2] + offset[2], 0, params.containerSize[2]),
+        clampNumber(
+          emitter.position[0] + offset[0],
+          0,
+          params.containerSize[0],
+        ),
+        clampNumber(
+          emitter.position[1] + offset[1],
+          0,
+          params.containerSize[1],
+        ),
+        clampNumber(
+          emitter.position[2] + offset[2],
+          0,
+          params.containerSize[2],
+        ),
       ]
 
       particles.setPosition(particleIndex, position)

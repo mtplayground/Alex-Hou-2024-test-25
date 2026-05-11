@@ -86,6 +86,35 @@ describe('scenePersistence', () => {
     ).toThrow('exactly one of emitter or initialFluid')
   })
 
+  it('sanitizes unsafe but structurally valid scene values on deserialize', () => {
+    const deserialized = deserializeScene(
+      JSON.stringify({
+        container: {
+          depth: 999,
+          height: 0.1,
+          width: 0.2,
+        },
+        emitter: {
+          direction: [0, -1, 0],
+          particleCap: 99999,
+          position: [999, -4, 999],
+          rate: 999,
+          speed: 999,
+        },
+        obstacles: [],
+        simParams: {
+          ...defaultSimParams,
+          viscosity: 999,
+        },
+      }),
+    )
+
+    expect(deserialized.container.depth).toBe(8)
+    expect(deserialized.container.height).toBe(1)
+    expect(deserialized.emitter?.particleCap).toBe(2048)
+    expect(deserialized.simParams.viscosity).toBe(2)
+  })
+
   it('stores, lists, loads, and deletes named presets in storage', () => {
     const storage = new MemoryStorage()
     const manager = new LocalStorageScenePresetManager({ storage })

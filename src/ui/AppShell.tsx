@@ -1,6 +1,7 @@
 import type { ChangeEvent } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  AlertTriangle,
   Boxes,
   ChevronLeft,
   Cuboid,
@@ -21,7 +22,7 @@ import {
 } from 'lucide-react'
 import { appDefaults } from '@/config/env'
 import { renderModuleSummary } from '@/render'
-import { simulationModuleSummary } from '@/sim'
+import { SIM_SAFETY_LIMITS, simulationModuleSummary } from '@/sim'
 import {
   BUILT_IN_SCENES,
   DEFAULT_BUILT_IN_SCENE_ID,
@@ -61,10 +62,26 @@ const AXES = ['x', 'y', 'z'] as const
 type AxisKey = (typeof AXES)[number]
 
 const SIM_PARAMETER_LIMITS = {
-  gravity: { max: 5, min: -20, step: 0.1 },
-  particleCount: { max: 4096, min: 128, step: 32 },
-  restDensity: { max: 2000, min: 300, step: 10 },
-  viscosity: { max: 2, min: 0, step: 0.01 },
+  gravity: {
+    max: SIM_SAFETY_LIMITS.gravity.max,
+    min: SIM_SAFETY_LIMITS.gravity.min,
+    step: 0.1,
+  },
+  particleCount: {
+    max: SIM_SAFETY_LIMITS.particleCount.max,
+    min: 128,
+    step: 32,
+  },
+  restDensity: {
+    max: SIM_SAFETY_LIMITS.restDensity.max,
+    min: SIM_SAFETY_LIMITS.restDensity.min,
+    step: 10,
+  },
+  viscosity: {
+    max: SIM_SAFETY_LIMITS.viscosity.max,
+    min: SIM_SAFETY_LIMITS.viscosity.min,
+    step: 0.01,
+  },
 } as const
 
 const ONBOARDING_STORAGE_KEY = 'fluid-playground.onboarding-scene-v1'
@@ -1394,6 +1411,7 @@ export function AppShell() {
   const [webmCaptureFramerate, setWebmCaptureFramerate] = useState(30)
   const [simulationRunning, setSimulationRunning] = useState(true)
   const [simulationSpeed, setSimulationSpeed] = useState(1)
+  const [simulationToast, setSimulationToast] = useState<string | null>(null)
   const scene = useSceneStore((state) => state.scene)
   const showHelpers = useHelloCubeStore((state) => state.showHelpers)
   const hasSimulationController = simulationController !== null
@@ -1413,6 +1431,10 @@ export function AppShell() {
     },
     [],
   )
+
+  const handleSimulationError = useCallback((message: string) => {
+    setSimulationToast(message)
+  }, [])
 
   const handleStartPngCapture = () => {
     simulationController?.startPngCapture()
@@ -1471,6 +1493,20 @@ export function AppShell() {
     }),
     [simulationController],
   )
+
+  useEffect(() => {
+    if (simulationToast === null) {
+      return
+    }
+
+    const timeout = window.setTimeout(() => {
+      setSimulationToast(null)
+    }, 5000)
+
+    return () => {
+      window.clearTimeout(timeout)
+    }
+  }, [simulationToast])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1586,10 +1622,32 @@ export function AppShell() {
                 <HelloCubeCanvas
                   onControllerChange={handleControllerChange}
                   onPngCaptureChange={handlePngCaptureChange}
+                  onSimulationError={handleSimulationError}
                   onSimulationReadyChange={setSimulationRunning}
                   onWebmCaptureChange={handleWebmCaptureChange}
                   simulationSpeed={simulationSpeed}
                 />
+                {simulationToast ? (
+                  <div className="pointer-events-none absolute inset-x-4 top-4 z-20 flex justify-center">
+                    <div
+                      className="pointer-events-auto flex max-w-xl items-start gap-3 rounded-2xl border border-amber-400/30 bg-amber-500/15 px-4 py-3 text-sm text-amber-50 shadow-2xl shadow-black/40 backdrop-blur-md"
+                      role="alert"
+                    >
+                      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-200" />
+                      <div className="min-w-0 flex-1 leading-6">
+                        {simulationToast}
+                      </div>
+                      <Button
+                        className="pointer-events-auto"
+                        onClick={() => setSimulationToast(null)}
+                        size="sm"
+                        variant="secondary"
+                      >
+                        Dismiss
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </section>
 

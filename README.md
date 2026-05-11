@@ -114,3 +114,5 @@ Issue #32 adds PNG frame capture for the viewport canvas, with start/stop contro
 Issue #33 adds WebM viewport recording through `canvas.captureStream()` and `MediaRecorder`, with a configurable export framerate in the control bar.
 
 Issue #36 adds three built-in starter scenes, a default first-visit scene load, and lightweight onboarding so the workspace opens with a ready-to-run setup instead of an empty editor state.
+
+Issue #37 adds shared simulation safety rails for parameter clamping, timestep caps, non-finite particle-state detection, and user-visible worker error toasts in the workspace shell.

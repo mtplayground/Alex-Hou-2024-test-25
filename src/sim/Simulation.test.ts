@@ -104,4 +104,43 @@ describe('Simulation', () => {
 
     expect(simulation.positions).toHaveLength(0)
   })
+
+  it('clamps unsafe dt and rejects non-finite particle state', () => {
+    const simulation = new Simulation()
+
+    simulation.init({
+      params: {
+        boundaryDamping: -0.25,
+        containerSize: [1, 1, 1],
+        gasConstant: 4,
+        gravity: [0, -9.81, 0],
+        particleMass: 0,
+        restDensity: 1000,
+        smoothingLength: 0.25,
+        timeStep: 0.01,
+        viscosity: 0,
+      },
+      positions: [[0.25, 0.8, 0.25]],
+    })
+
+    simulation.step(999)
+    expect(simulation.simTime).toBeCloseTo(0.25, 5)
+
+    expect(() =>
+      simulation.init({
+        params: {
+          boundaryDamping: -0.25,
+          containerSize: [1, 1, 1],
+          gasConstant: 4,
+          gravity: [0, -9.81, 0],
+          particleMass: 0,
+          restDensity: 1000,
+          smoothingLength: 0.25,
+          timeStep: 0.01,
+          viscosity: 0,
+        },
+        positions: [[Number.NaN, 0.8, 0.25]],
+      }),
+    ).toThrow('non-finite position value')
+  })
 })
