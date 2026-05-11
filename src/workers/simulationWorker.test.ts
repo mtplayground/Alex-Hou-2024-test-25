@@ -294,4 +294,43 @@ describe('SimulationWorkerHost', () => {
       type: 'STATS',
     })
   })
+
+  it('clamps unsafe params and large dt values before stepping', () => {
+    const postMessage =
+      vi.fn<
+        (message: SimulationWorkerResponse, transfer?: Transferable[]) => void
+      >()
+    const host = new SimulationWorkerHost(postMessage)
+
+    host.handleMessage({
+      payload: {
+        params: {
+          gravity: [0, -999, 0],
+          particleMass: 0,
+          timeStep: 99,
+          viscosity: 999,
+        },
+        positions: [[0.1, 0.9, 0.1]],
+      },
+      type: 'INIT',
+    })
+
+    host.handleMessage({
+      payload: {
+        dt: 999,
+      },
+      type: 'STEP',
+    })
+
+    const steppedStats = postMessage.mock.calls.at(-1)?.[0]
+
+    expect(steppedStats).toEqual({
+      payload: {
+        particleCount: 1,
+        simTime: 0.25,
+        stepRate: 4,
+      },
+      type: 'STATS',
+    })
+  })
 })

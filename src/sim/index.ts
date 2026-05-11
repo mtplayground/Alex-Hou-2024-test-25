@@ -16,6 +16,20 @@ export { buildInitialFluidBlockPositions } from './initialFluid'
 export { integrateParticles, type BoxObstacle } from './integrator'
 export { poly6Kernel, spikyGradient, viscosityLaplacian } from './kernels'
 export {
+  assertFiniteParticleBuffer,
+  clampNumber,
+  sanitizeParticleCount,
+  sanitizeInitialFluidBlock,
+  sanitizeScene,
+  sanitizeSceneContainer,
+  sanitizeSceneEmitter,
+  sanitizeSceneObstacle,
+  sanitizeSimParams,
+  sanitizeSimulationEmitter,
+  sanitizeTimeStep,
+  SIM_SAFETY_LIMITS,
+} from './safety'
+export {
   defaultSimParams,
   ParticleBuffer,
   type Particle,

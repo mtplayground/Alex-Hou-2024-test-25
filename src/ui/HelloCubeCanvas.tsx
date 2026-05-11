@@ -20,6 +20,7 @@ import { useSceneStore } from '@/store'
 interface HelloCubeCanvasProps {
   onControllerChange?: (controller: HelloCubeController | null) => void
   onPngCaptureChange?: (state: PngCaptureState) => void
+  onSimulationError?: (message: string) => void
   onSimulationReadyChange?: (running: boolean) => void
   onWebmCaptureChange?: (state: WebmCaptureState) => void
   simulationSpeed?: number
@@ -28,6 +29,7 @@ interface HelloCubeCanvasProps {
 export function HelloCubeCanvas({
   onControllerChange,
   onPngCaptureChange,
+  onSimulationError,
   onSimulationReadyChange,
   onWebmCaptureChange,
   simulationSpeed = 1,
@@ -76,7 +78,9 @@ export function HelloCubeCanvas({
         initialFluid: sceneState.initialFluid,
         obstacles: sceneState.obstacles,
         ...(onPngCaptureChange === undefined ? {} : { onPngCaptureChange }),
-        onSimulationError: setError,
+        onSimulationError: (message) => {
+          onSimulationError?.(message)
+        },
         onSimulationReadyChange: onSimulationReadyChange ?? undefined,
         onStatsChange: setStats,
         ...(onWebmCaptureChange === undefined ? {} : { onWebmCaptureChange }),
@@ -94,6 +98,7 @@ export function HelloCubeCanvas({
           : 'Unknown WebGL initialization error.'
       queueMicrotask(() => {
         setError(message)
+        onSimulationError?.(message)
       })
     }
 
@@ -106,6 +111,7 @@ export function HelloCubeCanvas({
     containerNode,
     onControllerChange,
     onPngCaptureChange,
+    onSimulationError,
     onSimulationReadyChange,
     onWebmCaptureChange,
     simulationSpeed,

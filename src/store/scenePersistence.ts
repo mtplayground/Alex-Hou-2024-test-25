@@ -1,4 +1,4 @@
-import type { SimParams } from '@/sim/particles'
+import { sanitizeScene, type SimParams } from '@/sim'
 import type {
   InitialFluidBlock,
   Scene,
@@ -278,7 +278,7 @@ export function assertValidScene(value: unknown, path = 'scene'): Scene {
 }
 
 export function serializeScene(scene: Scene): string {
-  return JSON.stringify(cloneScene(scene), null, 2)
+  return JSON.stringify(cloneScene(sanitizeScene(scene)), null, 2)
 }
 
 export function deserializeScene(serializedScene: string): Scene {
@@ -294,7 +294,7 @@ export function deserializeScene(serializedScene: string): Scene {
     )
   }
 
-  return assertValidScene(parsed)
+  return sanitizeScene(assertValidScene(parsed))
 }
 
 function resolveStorage(storage?: StorageLike): StorageLike {

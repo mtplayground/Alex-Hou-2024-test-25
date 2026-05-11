@@ -4,6 +4,9 @@ import JSZip from 'jszip'
 import * as THREE from 'three'
 import {
   buildInitialFluidBlockPositions,
+  sanitizeParticleCount,
+  sanitizeSimParams,
+  sanitizeTimeStep,
   type SimParams,
   type SimulationEmitter,
 } from '@/sim'
@@ -185,7 +188,7 @@ function buildSimulationSeed(
   if (emitter !== undefined) {
     return {
       emitter: {
-        cap: emitter.particleCap,
+        cap: sanitizeParticleCount(emitter.particleCap, 1024),
         position: emitter.position,
         rate: emitter.rate,
         velocity: normalizeEmitterVelocity(emitter),
@@ -378,6 +381,8 @@ export function createHelloCube(
   }
 
   const simulationStepDt = () => (1 / 60) * simulationSpeed
+  const safeSimulationStepDt = () =>
+    sanitizeTimeStep(simulationStepDt(), activeSimParams.timeStep)
 
   const publishStats = (force = false) => {
     const now =
@@ -474,18 +479,32 @@ export function createHelloCube(
     try {
       if (activeSession.recorder.state !== 'inactive') {
         await new Promise<void>((resolve, reject) => {
+          let settled = false
+          const settle = (callback: () => void) => {
+            if (settled) {
+              return
+            }
+
+            settled = true
+            callback()
+          }
           const handleStop = () => {
-            resolve()
+            settle(resolve)
           }
           const handleError = (event: Event) => {
             const recorderError = event as ErrorEvent
-            reject(
-              new Error(
-                recorderError.message ||
-                  'The MediaRecorder session ended with an unknown error.',
+            settle(() =>
+              reject(
+                new Error(
+                  recorderError.message ||
+                    'The MediaRecorder session ended with an unknown error.',
+                ),
               ),
             )
           }
+          const timeout = window.setTimeout(() => {
+            settle(resolve)
+          }, 1500)
 
           activeSession.recorder.addEventListener('stop', handleStop, {
             once: true,
@@ -493,13 +512,37 @@ export function createHelloCube(
           activeSession.recorder.addEventListener('error', handleError, {
             once: true,
           })
+          try {
+            activeSession.recorder.requestData()
+          } catch {
+            // Ignore requestData failures and rely on stop/timeout.
+          }
           activeSession.recorder.stop()
+          activeSession.recorder.addEventListener(
+            'stop',
+            () => {
+              window.clearTimeout(timeout)
+            },
+            { once: true },
+          )
+          activeSession.recorder.addEventListener(
+            'error',
+            () => {
+              window.clearTimeout(timeout)
+            },
+            { once: true },
+          )
         })
       }
 
       const videoBlob = new Blob(activeSession.chunks, {
         type: activeSession.mimeType,
       })
+
+      if (videoBlob.size === 0) {
+        throw new Error('WebM export produced an empty recording.')
+      }
+
       downloadBlob(videoBlob, createWebmDownloadName())
     } catch (error) {
       initialState.onSimulationError?.(
@@ -613,7 +656,7 @@ export function createHelloCube(
       simulationClient.pause()
     },
     playSimulation: () => {
-      simulationClient.start(simulationStepDt())
+      simulationClient.start(safeSimulationStepDt())
     },
     resetSimulation: () => {
       simulationClient.reset()
@@ -693,7 +736,7 @@ export function createHelloCube(
       }
     },
     stepSimulation: () => {
-      simulationClient.step(simulationStepDt())
+      simulationClient.step(safeSimulationStepDt())
     },
     setContainerSize: (nextContainerSize) => {
       activeContainerSize = nextContainerSize
@@ -762,9 +805,9 @@ export function createHelloCube(
       rotationSpeed = nextRotationSpeed
     },
     setSimulationParams: (nextSimParams) => {
-      activeSimParams = nextSimParams
+      activeSimParams = sanitizeSimParams(nextSimParams)
       simulationClient.updateParams({
-        ...nextSimParams,
+        ...activeSimParams,
         containerSize: [
           activeContainerSize.width,
           activeContainerSize.height,
@@ -776,7 +819,7 @@ export function createHelloCube(
       simulationSpeed = nextSimulationSpeed
 
       if (simulationRunning) {
-        simulationClient.start(simulationStepDt())
+        simulationClient.start(safeSimulationStepDt())
       }
     },
     setVisualizationMode: (nextVisualizationMode) => {

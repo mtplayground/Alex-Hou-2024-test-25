@@ -1,6 +1,7 @@
 import { Simulation, type SimulationInit } from '@/sim'
 import type { BoxObstacle } from '@/sim/integrator'
 import type { SimParams } from '@/sim/particles'
+import { sanitizeSimParams, sanitizeTimeStep } from '@/sim/safety'
 import {
   createPositionsMessage,
   positionsTransferList,
@@ -136,11 +137,12 @@ export class SimulationWorkerHost {
   private handleStart(dt?: number): void {
     this.ensureInitialized()
     this.handlePause()
-    this.frameDt = dt ?? this.frameDt
-
-    if (this.frameDt < 0) {
-      throw new RangeError('Simulation worker start dt must be non-negative.')
+    if (dt !== undefined && (!Number.isFinite(dt) || dt < 0)) {
+      throw new RangeError(
+        'Simulation worker start dt must be a finite non-negative value.',
+      )
     }
+    this.frameDt = sanitizeTimeStep(dt ?? this.frameDt, this.frameDt)
 
     this.stepTimer = setInterval(() => {
       try {
@@ -158,9 +160,16 @@ export class SimulationWorkerHost {
 
   private handleStep(dt: number): void {
     this.ensureInitialized()
-    this.simulation.step(dt)
+    if (!Number.isFinite(dt) || dt < 0) {
+      throw new RangeError(
+        'Simulation worker step dt must be a finite non-negative value.',
+      )
+    }
+
+    const safeDt = sanitizeTimeStep(dt, this.frameDt)
+    this.simulation.step(safeDt)
     this.emitPositions()
-    this.emitStats(this.resolveStepRate(dt))
+    this.emitStats(this.resolveStepRate(safeDt))
   }
 
   private handleUpdateParams(
@@ -168,7 +177,7 @@ export class SimulationWorkerHost {
     obstacles?: readonly BoxObstacle[],
   ): void {
     this.ensureInitialized()
-    this.simulation.updateParams(params)
+    this.simulation.updateParams(sanitizeSimParams(params))
 
     if (obstacles) {
       this.simulation.updateObstacles(obstacles)

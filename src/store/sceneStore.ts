@@ -1,5 +1,13 @@
 import { create } from 'zustand'
-import type { SimParams } from '@/sim/particles'
+import {
+  sanitizeInitialFluidBlock,
+  sanitizeScene,
+  sanitizeSceneContainer,
+  sanitizeSceneEmitter,
+  sanitizeSceneObstacle,
+  sanitizeSimParams,
+  type SimParams,
+} from '@/sim'
 import type {
   InitialFluidBlock,
   Scene,
@@ -26,10 +34,11 @@ function cloneObstacle(obstacle: SceneObstacle): SceneObstacle {
 }
 
 function cloneSimParams(params: SimParams): SimParams {
+  const sanitized = sanitizeSimParams(params)
   return {
-    ...params,
-    containerSize: cloneVec3(params.containerSize),
-    gravity: cloneVec3(params.gravity),
+    ...sanitized,
+    containerSize: cloneVec3(sanitized.containerSize),
+    gravity: cloneVec3(sanitized.gravity),
   }
 }
 
@@ -74,6 +83,10 @@ function nextDefaultScene(): Scene {
   return cloneScene(getDefaultBuiltInScene())
 }
 
+function sanitizeNextScene(scene: Scene): Scene {
+  return cloneScene(sanitizeScene(scene))
+}
+
 export interface SceneStoreState {
   addObstacle: (obstacle: SceneObstacle) => void
   removeObstacle: (id: string) => void
@@ -92,7 +105,10 @@ export const useSceneStore = create<SceneStoreState>((set) => ({
     set((state) => ({
       scene: {
         ...state.scene,
-        obstacles: [...state.scene.obstacles, cloneObstacle(obstacle)],
+        obstacles: [
+          ...state.scene.obstacles,
+          sanitizeSceneObstacle(obstacle, state.scene.container),
+        ],
       },
     })),
   removeObstacle: (id) =>
@@ -106,7 +122,7 @@ export const useSceneStore = create<SceneStoreState>((set) => ({
     })),
   replaceScene: (scene) =>
     set({
-      scene: cloneScene(scene),
+      scene: sanitizeNextScene(scene),
     }),
   resetScene: () =>
     set({
@@ -115,16 +131,16 @@ export const useSceneStore = create<SceneStoreState>((set) => ({
   scene: nextDefaultScene(),
   setContainer: (container) =>
     set((state) => ({
-      scene: {
+      scene: sanitizeNextScene({
         ...state.scene,
-        container: cloneContainer(container),
-      },
+        container: sanitizeSceneContainer(container, state.scene.container),
+      }),
     })),
   setEmitter: (emitter) =>
     set((state) => ({
       scene: {
         container: state.scene.container,
-        emitter: cloneEmitter(emitter),
+        emitter: sanitizeSceneEmitter(emitter, state.scene.container),
         obstacles: state.scene.obstacles,
         simParams: state.scene.simParams,
       },
@@ -133,7 +149,10 @@ export const useSceneStore = create<SceneStoreState>((set) => ({
     set((state) => ({
       scene: {
         container: state.scene.container,
-        initialFluid: cloneInitialFluid(initialFluid),
+        initialFluid: sanitizeInitialFluidBlock(
+          initialFluid,
+          state.scene.container,
+        ),
         obstacles: state.scene.obstacles,
         simParams: state.scene.simParams,
       },
@@ -147,12 +166,15 @@ export const useSceneStore = create<SceneStoreState>((set) => ({
             return obstacle
           }
 
-          return cloneObstacle({
-            ...obstacle,
-            ...patch,
-            center: patch.center ? cloneVec3(patch.center) : obstacle.center,
-            size: patch.size ? cloneVec3(patch.size) : obstacle.size,
-          })
+          return sanitizeSceneObstacle(
+            {
+              ...obstacle,
+              ...patch,
+              center: patch.center ? cloneVec3(patch.center) : obstacle.center,
+              size: patch.size ? cloneVec3(patch.size) : obstacle.size,
+            },
+            state.scene.container,
+          )
         }),
       },
     })),
@@ -160,16 +182,18 @@ export const useSceneStore = create<SceneStoreState>((set) => ({
     set((state) => ({
       scene: {
         ...state.scene,
-        simParams: cloneSimParams({
-          ...state.scene.simParams,
-          ...patch,
-          containerSize: patch.containerSize
-            ? cloneVec3(patch.containerSize)
-            : state.scene.simParams.containerSize,
-          gravity: patch.gravity
-            ? cloneVec3(patch.gravity)
-            : state.scene.simParams.gravity,
-        }),
+        simParams: cloneSimParams(
+          sanitizeSimParams({
+            ...state.scene.simParams,
+            ...patch,
+            containerSize: patch.containerSize
+              ? cloneVec3(patch.containerSize)
+              : state.scene.simParams.containerSize,
+            gravity: patch.gravity
+              ? cloneVec3(patch.gravity)
+              : state.scene.simParams.gravity,
+          }),
+        ),
       },
     })),
 }))
