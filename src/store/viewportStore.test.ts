@@ -19,6 +19,7 @@ describe('useViewportStore', () => {
       iterations: 4,
       radius: 7,
     })
+    useViewportStore.getState().setSsfrDebugView('normals')
     useViewportStore.getState().setSsfrAppearanceSettings({
       absorptionStrength: 1.9,
       fresnelPower: 6.2,
@@ -48,6 +49,7 @@ describe('useViewportStore', () => {
       iterations: 2,
       radius: 4,
     })
+    expect(nextState.ssfrDebugView).toBe('final')
     expect(nextState.showHelpers).toBe(appDefaults.showHelpers)
     expect(nextState.visualizationMode).toBe('speed')
   })

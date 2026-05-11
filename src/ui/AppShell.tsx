@@ -308,6 +308,7 @@ function ControlPanelBody({
   const setSsfrBlurSettings = useViewportStore(
     (state) => state.setSsfrBlurSettings,
   )
+  const setSsfrDebugView = useViewportStore((state) => state.setSsfrDebugView)
   const setVisualizationMode = useViewportStore(
     (state) => state.setVisualizationMode,
   )
@@ -315,6 +316,7 @@ function ControlPanelBody({
     (state) => state.ssfrAppearanceSettings,
   )
   const ssfrBlurSettings = useViewportStore((state) => state.ssfrBlurSettings)
+  const ssfrDebugView = useViewportStore((state) => state.ssfrDebugView)
   const toggleHelpers = useViewportStore((state) => state.toggleHelpers)
   const visualizationMode = useViewportStore((state) => state.visualizationMode)
   const reset = useViewportStore((state) => state.reset)
@@ -1085,11 +1087,35 @@ function ControlPanelBody({
                 <option value="pressure">Color by pressure</option>
               </select>
             </label>
+            <label className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                SSFR debug view
+              </span>
+              <select
+                className="flex h-10 w-full rounded-md border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-sky-400/60"
+                onChange={(event) =>
+                  setSsfrDebugView(
+                    event.target.value as
+                      | 'depth'
+                      | 'final'
+                      | 'normals'
+                      | 'thickness',
+                  )
+                }
+                value={ssfrDebugView}
+              >
+                <option value="final">Final composite</option>
+                <option value="depth">Depth target</option>
+                <option value="thickness">Thickness target</option>
+                <option value="normals">Normal reconstruction</option>
+              </select>
+            </label>
             <p className="mt-3 text-xs leading-5 text-slate-400">
               Switch between the legacy instanced-sphere view and the SSFR fluid
               surface. Particle colors still come from the worker&apos;s latest
               frame, so both render modes update without restarting the
-              simulation.
+              simulation. The debug view selector swaps the SSFR output between
+              the final composite and the intermediate diagnostic textures.
             </p>
           </div>
 
@@ -1303,31 +1329,6 @@ function ControlPanelBody({
                   step={SSFR_APPEARANCE_LIMITS.blurIterations.step}
                   value={[ssfrBlurSettings.iterations]}
                 />
-              </div>
-
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/20 px-4 py-3">
-                <div>
-                  <div className="text-sm font-medium text-white">
-                    Thickness debug view
-                  </div>
-                  <p className="text-xs leading-5 text-slate-400">
-                    Swap the fluid composite for a thickness heat view to tune
-                    absorption and blur values.
-                  </p>
-                </div>
-                <Button
-                  onClick={() =>
-                    updateSsfrAppearance({
-                      showThicknessDebug:
-                        !ssfrAppearanceSettings.showThicknessDebug,
-                    })
-                  }
-                  variant="secondary"
-                >
-                  {ssfrAppearanceSettings.showThicknessDebug
-                    ? 'Disable debug'
-                    : 'Enable debug'}
-                </Button>
               </div>
             </div>
           </div>
