@@ -106,3 +106,7 @@ Issue #28 adds a live HUD overlay to the Three.js viewport for render FPS, simul
 Issue #29 adds visualization-mode toggles for speed, density, and pressure, with worker-supplied scalar buffers driving per-instance particle coloring in the viewport.
 
 Issue #30 adds validated scene JSON serialization plus a localStorage-backed preset manager for named create/list/load/delete workflows.
+
+Issue #31 adds a preset-manager UI for saving, loading, deleting, importing, and exporting scene JSON snapshots from the control rail.
+
+Issue #32 adds PNG frame capture for the viewport canvas, with start/stop controls that bundle captured frames into a downloadable zip archive.

@@ -11,18 +11,21 @@ import {
   createHelloCube,
   type HelloCubeController,
   type HelloCubeStats,
+  type PngCaptureState,
 } from '@/render/helloCube'
 import { useHelloCubeStore } from '@/store/helloCubeStore'
 import { useSceneStore } from '@/store'
 
 interface HelloCubeCanvasProps {
   onControllerChange?: (controller: HelloCubeController | null) => void
+  onPngCaptureChange?: (state: PngCaptureState) => void
   onSimulationReadyChange?: (running: boolean) => void
   simulationSpeed?: number
 }
 
 export function HelloCubeCanvas({
   onControllerChange,
+  onPngCaptureChange,
   onSimulationReadyChange,
   simulationSpeed = 1,
 }: HelloCubeCanvasProps) {
@@ -70,6 +73,7 @@ export function HelloCubeCanvas({
         emitter: sceneState.emitter,
         initialFluid: sceneState.initialFluid,
         obstacles: sceneState.obstacles,
+        ...(onPngCaptureChange === undefined ? {} : { onPngCaptureChange }),
         onSimulationError: setError,
         onSimulationReadyChange: onSimulationReadyChange ?? undefined,
         onStatsChange: setStats,
