@@ -7,18 +7,15 @@ import {
   updateParticleImpostorGeometry,
 } from './particleImpostorShared'
 
-interface ParticleDepthPassOptions {
+interface ParticleThicknessPassOptions {
   height: number
   maxParticles: number
   particleRadius: number
   width: number
 }
 
-const PARTICLE_DEPTH_FRAGMENT_SHADER = `
+const PARTICLE_THICKNESS_FRAGMENT_SHADER = `
 uniform float uParticleRadius;
-uniform mat4 uProjectionMatrix;
-
-varying vec3 vViewCenter;
 
 void main() {
   vec2 sphereUv = gl_PointCoord * 2.0 - 1.0;
@@ -29,70 +26,44 @@ void main() {
   }
 
   float sphereZ = sqrt(1.0 - radiusSquared);
-  vec3 viewPosition = vec3(
-    vViewCenter.xy + sphereUv * uParticleRadius,
-    vViewCenter.z + sphereZ * uParticleRadius
-  );
-
-  vec4 clipPosition = uProjectionMatrix * vec4(viewPosition, 1.0);
-  float ndcDepth = clipPosition.z / clipPosition.w;
-  gl_FragDepth = ndcDepth * 0.5 + 0.5;
-
-  float viewSpaceDepth = -viewPosition.z;
-  gl_FragColor = vec4(viewSpaceDepth, viewSpaceDepth, viewSpaceDepth, 1.0);
+  float thickness = sphereZ * uParticleRadius * 2.0;
+  gl_FragColor = vec4(thickness, thickness, thickness, thickness);
 }
 `
 
-function createParticleDepthMaterial(
+function createParticleThicknessMaterial(
   particleRadius: number,
   viewportHeight: number,
 ): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
-    blending: THREE.NoBlending,
-    depthTest: true,
-    depthWrite: true,
-    fragmentShader: PARTICLE_DEPTH_FRAGMENT_SHADER,
-    transparent: false,
+    blending: THREE.AdditiveBlending,
+    depthTest: false,
+    depthWrite: false,
+    fragmentShader: PARTICLE_THICKNESS_FRAGMENT_SHADER,
+    transparent: true,
     uniforms: {
       uParticleRadius: { value: particleRadius },
-      uProjectionMatrix: { value: new THREE.Matrix4() },
       uViewportHeight: { value: viewportHeight },
     },
     vertexShader: PARTICLE_IMPOSTOR_VERTEX_SHADER,
   })
 }
 
-function getNumericUniform(
-  material: THREE.ShaderMaterial,
-  uniformName: 'uViewportHeight',
-): { value: number } {
-  const uniform = material.uniforms[uniformName]
+function getViewportHeightUniform(material: THREE.ShaderMaterial): {
+  value: number
+} {
+  const uniform = material.uniforms['uViewportHeight']
 
   if (uniform === undefined || typeof uniform.value !== 'number') {
     throw new Error(
-      `Particle depth pass is missing numeric uniform "${uniformName}".`,
+      'Particle thickness pass is missing the viewport-height uniform.',
     )
   }
 
   return uniform as { value: number }
 }
 
-function getMatrixUniform(
-  material: THREE.ShaderMaterial,
-  uniformName: 'uProjectionMatrix',
-): { value: THREE.Matrix4 } {
-  const uniform = material.uniforms[uniformName]
-
-  if (uniform === undefined || !(uniform.value instanceof THREE.Matrix4)) {
-    throw new Error(
-      `Particle depth pass is missing matrix uniform "${uniformName}".`,
-    )
-  }
-
-  return uniform as { value: THREE.Matrix4 }
-}
-
-export interface ParticleDepthPass {
+export interface ParticleThicknessPass {
   dispose: () => void
   readonly renderTarget: THREE.WebGLRenderTarget
   render: (
@@ -102,14 +73,14 @@ export interface ParticleDepthPass {
   updateFrame: (frame: SimulationFrame, containerSize: ContainerSize) => void
 }
 
-export function createParticleDepthPass({
+export function createParticleThicknessPass({
   height,
   maxParticles,
   particleRadius,
   width,
-}: ParticleDepthPassOptions): ParticleDepthPass {
+}: ParticleThicknessPassOptions): ParticleThicknessPass {
   const [geometry, positions] = createParticleImpostorGeometry(maxParticles)
-  const material = createParticleDepthMaterial(particleRadius, height)
+  const material = createParticleThicknessMaterial(particleRadius, height)
   const points = new THREE.Points(geometry, material)
   points.frustumCulled = false
 
@@ -117,14 +88,14 @@ export function createParticleDepthPass({
   scene.add(points)
 
   const renderTarget = new THREE.WebGLRenderTarget(width, height, {
-    depthBuffer: true,
-    magFilter: THREE.NearestFilter,
-    minFilter: THREE.NearestFilter,
+    depthBuffer: false,
+    magFilter: THREE.LinearFilter,
+    minFilter: THREE.LinearFilter,
     stencilBuffer: false,
     type: THREE.HalfFloatType,
   })
   renderTarget.texture.generateMipmaps = false
-  renderTarget.texture.name = 'ssfr-particle-depth'
+  renderTarget.texture.name = 'ssfr-particle-thickness'
 
   const size = new THREE.Vector2(width, height)
   const clearColor = new THREE.Color(0x000000)
@@ -149,16 +120,8 @@ export function createParticleDepthPass({
         )
       }
 
-      const viewportHeightUniform = getNumericUniform(
-        material,
-        'uViewportHeight',
-      )
-      const projectionMatrixUniform = getMatrixUniform(
-        material,
-        'uProjectionMatrix',
-      )
+      const viewportHeightUniform = getViewportHeightUniform(material)
       viewportHeightUniform.value = Math.max(size.y, 1)
-      projectionMatrixUniform.value.copy(camera.projectionMatrix)
 
       const previousTarget = renderer.getRenderTarget()
       const previousAutoClear = renderer.autoClear
@@ -168,7 +131,7 @@ export function createParticleDepthPass({
       renderer.setRenderTarget(renderTarget)
       renderer.autoClear = true
       renderer.setClearColor(clearColor, 0)
-      renderer.clear(true, true, false)
+      renderer.clear(true, false, false)
       renderer.render(scene, camera)
       renderer.setRenderTarget(previousTarget)
       renderer.setClearColor(previousClearColor, previousClearAlpha)
