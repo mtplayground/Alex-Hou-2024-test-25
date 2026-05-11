@@ -1,3 +1,4 @@
+import type { ChangeEvent } from 'react'
 import { Cuboid, Gauge, RotateCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -7,12 +8,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { Slider } from '@/components/ui/slider'
 import { HelloCubeCanvas } from '@/ui/HelloCubeCanvas'
 import { renderModuleSummary } from '@/render'
 import { simulationModuleSummary } from '@/sim'
 import { appDefaults } from '@/config/env'
-import { useHelloCubeStore } from '@/store/helloCubeStore'
+import { type ContainerSize, useHelloCubeStore } from '@/store/helloCubeStore'
 import { storeModuleSummary } from '@/store'
 import { workerModuleSummary } from '@/workers'
 
@@ -24,11 +26,28 @@ const sections = [
 ]
 
 export function AppShell() {
+  const containerSize = useHelloCubeStore((state) => state.containerSize)
   const rotationSpeed = useHelloCubeStore((state) => state.rotationSpeed)
   const showHelpers = useHelloCubeStore((state) => state.showHelpers)
+  const setContainerSize = useHelloCubeStore((state) => state.setContainerSize)
   const setRotationSpeed = useHelloCubeStore((state) => state.setRotationSpeed)
   const toggleHelpers = useHelloCubeStore((state) => state.toggleHelpers)
   const reset = useHelloCubeStore((state) => state.reset)
+
+  const updateContainerDimension =
+    (dimension: keyof ContainerSize) =>
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const nextValue = Number(event.target.value)
+
+      if (!Number.isFinite(nextValue) || nextValue <= 0) {
+        return
+      }
+
+      setContainerSize({
+        ...containerSize,
+        [dimension]: nextValue,
+      })
+    }
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.2),_transparent_28%),linear-gradient(180deg,_hsl(222_47%_11%),_hsl(224_45%_9%))]">
@@ -41,13 +60,13 @@ export function AppShell() {
         <section className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_360px]">
           <div className="space-y-5">
             <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-              Three.js now renders an orbitable cube with axes and a grid.
+              Three.js now renders an orbitable cube inside a live container.
             </h1>
             <p className="max-w-2xl text-base leading-7 text-slate-300">
-              This pass adds the first scene helpers. The viewport now shows an
-              XYZ axes helper and an XZ grid, both driven by a single Zustand
-              flag so later scene editing work can treat helper visibility as
-              real application state.
+              This pass adds the first simulation boundary. The viewport now
+              renders a wireframe container whose width, height, and depth come
+              from Zustand, so scene geometry reacts immediately to state
+              changes instead of being hardcoded.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Button className="gap-2" onClick={reset}>
@@ -85,6 +104,44 @@ export function AppShell() {
                   value={[rotationSpeed]}
                 />
               </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-slate-200">
+                    Width
+                  </span>
+                  <Input
+                    min="1"
+                    onChange={updateContainerDimension('width')}
+                    step="0.1"
+                    type="number"
+                    value={containerSize.width}
+                  />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-slate-200">
+                    Height
+                  </span>
+                  <Input
+                    min="1"
+                    onChange={updateContainerDimension('height')}
+                    step="0.1"
+                    type="number"
+                    value={containerSize.height}
+                  />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-slate-200">
+                    Depth
+                  </span>
+                  <Input
+                    min="1"
+                    onChange={updateContainerDimension('depth')}
+                    step="0.1"
+                    type="number"
+                    value={containerSize.depth}
+                  />
+                </label>
+              </div>
               <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
                 <div className="flex items-center gap-2 font-medium text-white">
                   <Cuboid className="size-4 text-sky-300" />
@@ -102,6 +159,11 @@ export function AppShell() {
                   </span>
                   <span>
                     default emitter rate: {appDefaults.defaultEmitterRate}
+                  </span>
+                  <span>
+                    container: {containerSize.width.toFixed(1)} x{' '}
+                    {containerSize.height.toFixed(1)} x{' '}
+                    {containerSize.depth.toFixed(1)}
                   </span>
                 </div>
               </div>

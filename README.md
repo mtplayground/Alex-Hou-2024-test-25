@@ -61,4 +61,4 @@ npm run test:e2e
 - `src/workers`: worker entrypoints and message plumbing
 - `e2e`: Playwright smoke tests
 
-Issue #7 adds the XYZ axes helper and XZ grid helper, both controlled through application state on top of the reusable Three.js viewport.
+Issue #8 adds a reactive wireframe simulation container whose dimensions come from Zustand state and update live in the Three.js scene.

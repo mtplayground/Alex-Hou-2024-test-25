@@ -1,13 +1,16 @@
+import type { ContainerSize } from '@/store/helloCubeStore'
 import * as THREE from 'three'
 import { createThreeViewport } from '@/render/threeViewport'
 
 interface HelloCubeState {
+  containerSize: ContainerSize
   rotationSpeed: number
   showHelpers: boolean
 }
 
 export interface HelloCubeController {
   dispose: () => void
+  setContainerSize: (containerSize: ContainerSize) => void
   setHelpersVisible: (showHelpers: boolean) => void
   setRotationSpeed: (rotationSpeed: number) => void
 }
@@ -21,6 +24,29 @@ function disposeMaterial(material: THREE.Material | THREE.Material[]) {
   material.dispose()
 }
 
+function createContainerWireframe(
+  containerSize: ContainerSize,
+): THREE.LineSegments {
+  const containerGeometry = new THREE.BoxGeometry(
+    containerSize.width,
+    containerSize.height,
+    containerSize.depth,
+  )
+  const containerEdges = new THREE.EdgesGeometry(containerGeometry)
+  const containerMaterial = new THREE.LineBasicMaterial({
+    color: 0xe2e8f0,
+    transparent: true,
+    opacity: 0.75,
+  })
+  const containerWireframe = new THREE.LineSegments(
+    containerEdges,
+    containerMaterial,
+  )
+  containerWireframe.position.y = containerSize.height * 0.5
+  containerGeometry.dispose()
+  return containerWireframe
+}
+
 export function createHelloCube(
   container: HTMLElement,
   initialState: HelloCubeState,
@@ -28,7 +54,7 @@ export function createHelloCube(
   const viewport = createThreeViewport({
     cameraPosition: [2.8, 2.4, 3.6],
     container,
-    target: [0, 0, 0],
+    target: [0, initialState.containerSize.height * 0.45, 0],
   })
   const { controls, scene } = viewport
   controls.maxDistance = 8
@@ -48,9 +74,13 @@ export function createHelloCube(
       roughness: 0.3,
     }),
   )
+  cube.position.y = 0.85
   cube.rotation.x = 0.55
   cube.rotation.y = 0.35
   scene.add(cube)
+
+  let containerWireframe = createContainerWireframe(initialState.containerSize)
+  scene.add(containerWireframe)
 
   const axesHelper = new THREE.AxesHelper(1.7)
   const gridHelper = new THREE.GridHelper(8, 8, 0xef4444, 0x334155)
@@ -66,13 +96,31 @@ export function createHelloCube(
 
   return {
     dispose: () => {
-      scene.remove(cube, axesHelper, gridHelper, ambientLight, directionalLight)
+      scene.remove(
+        cube,
+        containerWireframe,
+        axesHelper,
+        gridHelper,
+        ambientLight,
+        directionalLight,
+      )
       cube.geometry.dispose()
       axesHelper.geometry.dispose()
+      containerWireframe.geometry.dispose()
       gridHelper.geometry.dispose()
       disposeMaterial(cube.material)
+      disposeMaterial(containerWireframe.material)
       disposeMaterial(gridHelper.material)
       viewport.dispose()
+    },
+    setContainerSize: (nextContainerSize) => {
+      scene.remove(containerWireframe)
+      containerWireframe.geometry.dispose()
+      disposeMaterial(containerWireframe.material)
+      containerWireframe = createContainerWireframe(nextContainerSize)
+      scene.add(containerWireframe)
+      controls.target.y = nextContainerSize.height * 0.45
+      controls.update()
     },
     setHelpersVisible: (showHelpers) => {
       axesHelper.visible = showHelpers
