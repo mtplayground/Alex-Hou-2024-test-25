@@ -209,8 +209,13 @@ interface ControlPanelBodyProps {
   hasSimulationController: boolean
   onPauseSimulation: () => void
   onPlaySimulation: () => void
+  onStartPngCapture: () => void
   onResetSimulation: () => void
+  onStopPngCapture: () => void
   onStepSimulation: () => void
+  pngCaptureActive: boolean
+  pngCaptureBusy: boolean
+  pngCaptureFrameCount: number
   onSimulationSpeedChange: (value: number) => void
   simulationRunning: boolean
   simulationSpeed: number
@@ -220,8 +225,13 @@ function ControlPanelBody({
   hasSimulationController,
   onPauseSimulation,
   onPlaySimulation,
+  onStartPngCapture,
   onResetSimulation,
+  onStopPngCapture,
   onStepSimulation,
+  pngCaptureActive,
+  pngCaptureBusy,
+  pngCaptureFrameCount,
   onSimulationSpeedChange,
   simulationRunning,
   simulationSpeed,
@@ -533,6 +543,16 @@ function ControlPanelBody({
                 Reset sim
                 <RotateCw className="size-4" />
               </Button>
+              <Button
+                disabled={!hasSimulationController || pngCaptureBusy}
+                onClick={
+                  pngCaptureActive ? onStopPngCapture : onStartPngCapture
+                }
+                variant="secondary"
+              >
+                {pngCaptureActive ? 'Stop PNG capture' : 'Start PNG capture'}
+                <Download className="size-4" />
+              </Button>
             </div>
             <div className="mt-4 space-y-3">
               <div className="flex items-center justify-between text-sm text-slate-300">
@@ -550,6 +570,13 @@ function ControlPanelBody({
               />
               <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
                 Shortcuts: Space play/pause, R reset
+              </p>
+              <p className="text-xs leading-5 text-slate-400">
+                {pngCaptureBusy
+                  ? 'Packaging PNG frames into a zip for download.'
+                  : pngCaptureActive
+                    ? `Capturing PNG frames: ${String(pngCaptureFrameCount)}`
+                    : 'Capture the viewport canvas into PNG frames and download them as a zip.'}
               </p>
             </div>
           </div>
@@ -1190,6 +1217,9 @@ export function AppShell() {
   const [panelOpen, setPanelOpen] = useState(true)
   const [simulationController, setSimulationController] =
     useState<HelloCubeController | null>(null)
+  const [pngCaptureActive, setPngCaptureActive] = useState(false)
+  const [pngCaptureBusy, setPngCaptureBusy] = useState(false)
+  const [pngCaptureFrameCount, setPngCaptureFrameCount] = useState(0)
   const [simulationRunning, setSimulationRunning] = useState(true)
   const [simulationSpeed, setSimulationSpeed] = useState(1)
   const scene = useSceneStore((state) => state.scene)
@@ -1200,8 +1230,26 @@ export function AppShell() {
     setSimulationController(controller)
 
     if (controller === null) {
+      setPngCaptureActive(false)
+      setPngCaptureBusy(false)
+      setPngCaptureFrameCount(0)
       setSimulationRunning(false)
     }
+  }
+
+  const handleStartPngCapture = () => {
+    simulationController?.startPngCapture()
+  }
+
+  const handleStopPngCapture = () => {
+    if (simulationController === null) {
+      return
+    }
+
+    setPngCaptureBusy(true)
+    void simulationController.stopPngCapture().finally(() => {
+      setPngCaptureBusy(false)
+    })
   }
 
   const controlActions = useMemo(
@@ -1327,6 +1375,10 @@ export function AppShell() {
               <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-2 shadow-2xl shadow-black/20">
                 <HelloCubeCanvas
                   onControllerChange={handleControllerChange}
+                  onPngCaptureChange={(state) => {
+                    setPngCaptureActive(state.active)
+                    setPngCaptureFrameCount(state.frameCount)
+                  }}
                   onSimulationReadyChange={setSimulationRunning}
                   simulationSpeed={simulationSpeed}
                 />
@@ -1340,9 +1392,14 @@ export function AppShell() {
                     hasSimulationController={hasSimulationController}
                     onPauseSimulation={controlActions.pause}
                     onPlaySimulation={controlActions.play}
+                    onStartPngCapture={handleStartPngCapture}
                     onResetSimulation={controlActions.reset}
+                    onStopPngCapture={handleStopPngCapture}
                     onSimulationSpeedChange={setSimulationSpeed}
                     onStepSimulation={controlActions.step}
+                    pngCaptureActive={pngCaptureActive}
+                    pngCaptureBusy={pngCaptureBusy}
+                    pngCaptureFrameCount={pngCaptureFrameCount}
                     simulationRunning={simulationRunning}
                     simulationSpeed={simulationSpeed}
                   />
@@ -1371,9 +1428,14 @@ export function AppShell() {
                   hasSimulationController={hasSimulationController}
                   onPauseSimulation={controlActions.pause}
                   onPlaySimulation={controlActions.play}
+                  onStartPngCapture={handleStartPngCapture}
                   onResetSimulation={controlActions.reset}
+                  onStopPngCapture={handleStopPngCapture}
                   onSimulationSpeedChange={setSimulationSpeed}
                   onStepSimulation={controlActions.step}
+                  pngCaptureActive={pngCaptureActive}
+                  pngCaptureBusy={pngCaptureBusy}
+                  pngCaptureFrameCount={pngCaptureFrameCount}
                   simulationRunning={simulationRunning}
                   simulationSpeed={simulationSpeed}
                 />

@@ -13,7 +13,10 @@ export interface ThreeViewport {
   dispose: () => void
   renderer: THREE.WebGLRenderer
   scene: THREE.Scene
-  start: (onFrame: (deltaSeconds: number) => void) => void
+  start: (
+    onFrame: (deltaSeconds: number) => void,
+    onAfterRender?: () => void,
+  ) => void
 }
 
 export function createThreeViewport({
@@ -24,6 +27,7 @@ export function createThreeViewport({
   const renderer = new THREE.WebGLRenderer({
     alpha: true,
     antialias: true,
+    preserveDrawingBuffer: true,
   })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
   renderer.setClearAlpha(0)
@@ -71,7 +75,7 @@ export function createThreeViewport({
     },
     renderer,
     scene,
-    start: (onFrame) => {
+    start: (onFrame, onAfterRender) => {
       const clock = new THREE.Clock()
 
       const renderFrame = () => {
@@ -83,6 +87,7 @@ export function createThreeViewport({
         onFrame(deltaSeconds)
         controls.update()
         renderer.render(scene, camera)
+        onAfterRender?.()
         animationFrame = window.requestAnimationFrame(renderFrame)
       }
 

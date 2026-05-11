@@ -1,5 +1,6 @@
 import type { ContainerSize } from '@/store/helloCubeStore'
 import type { VisualizationMode } from '@/store/helloCubeStore'
+import JSZip from 'jszip'
 import * as THREE from 'three'
 import {
   buildInitialFluidBlockPositions,
@@ -27,6 +28,7 @@ interface HelloCubeState {
   emitter: SceneEmitter | undefined
   initialFluid: InitialFluidBlock | undefined
   obstacles: SceneObstacle[]
+  onPngCaptureChange?: (state: PngCaptureState) => void
   onSimulationError?: (message: string) => void
   onSimulationReadyChange: ((running: boolean) => void) | undefined
   onStatsChange?: (stats: HelloCubeStats) => void
@@ -44,6 +46,11 @@ export interface HelloCubeStats {
   stepRate: number
 }
 
+export interface PngCaptureState {
+  active: boolean
+  frameCount: number
+}
+
 export interface HelloCubeController {
   dispose: () => void
   pauseSimulation: () => void
@@ -58,12 +65,20 @@ export interface HelloCubeController {
   setSimulationParams: (simParams: SimParams) => void
   setSimulationSpeed: (simulationSpeed: number) => void
   setVisualizationMode: (visualizationMode: VisualizationMode) => void
+  startPngCapture: () => void
+  stopPngCapture: () => Promise<void>
   stepSimulation: () => void
 }
 
 interface SimulationSeed {
   emitter: SimulationEmitter | undefined
   positions: [number, number, number][]
+}
+
+interface PngCaptureSession {
+  frameCount: number
+  pendingCaptures: Set<Promise<void>>
+  zip: JSZip
 }
 
 function disposeMaterial(material: THREE.Material | THREE.Material[]) {
@@ -179,6 +194,22 @@ function buildSimulationSeed(
   }
 }
 
+function createCaptureDownloadName() {
+  const timestamp = new Date().toISOString().replaceAll(':', '-')
+  return `png-frames-${timestamp}.zip`
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const objectUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = objectUrl
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(objectUrl)
+}
+
 export function createHelloCube(
   container: HTMLElement,
   initialState: HelloCubeState,
@@ -231,6 +262,8 @@ export function createHelloCube(
   }
   let lastStatsPublishAt = 0
   let lastFrame: SimulationFrame | null = null
+  let captureSession: PngCaptureSession | null = null
+  let captureStopping = false
   let particlePreview = createParticleInstances(
     Math.max(
       simulationSeed.positions.length,
@@ -317,6 +350,67 @@ export function createHelloCube(
     })
   }
 
+  const publishCaptureState = () => {
+    initialState.onPngCaptureChange?.({
+      active: captureSession !== null,
+      frameCount: captureSession?.frameCount ?? 0,
+    })
+  }
+
+  const capturePngFrame = () => {
+    if (captureSession === null || captureStopping) {
+      return
+    }
+
+    const nextFrameIndex = captureSession.frameCount + 1
+    captureSession.frameCount = nextFrameIndex
+    publishCaptureState()
+
+    const activeSession = captureSession
+    const capturePromise = new Promise<void>((resolve) => {
+      viewport.renderer.domElement.toBlob((blob) => {
+        if (blob === null) {
+          initialState.onSimulationError?.(
+            'PNG capture failed while reading the canvas frame.',
+          )
+          resolve()
+          return
+        }
+
+        activeSession.zip.file(
+          `frame-${nextFrameIndex.toString().padStart(6, '0')}.png`,
+          blob,
+        )
+        resolve()
+      }, 'image/png')
+    })
+
+    activeSession.pendingCaptures.add(capturePromise)
+    void capturePromise.finally(() => {
+      activeSession.pendingCaptures.delete(capturePromise)
+    })
+  }
+
+  const stopCaptureSession = async () => {
+    if (captureSession === null || captureStopping) {
+      return
+    }
+
+    captureStopping = true
+    const activeSession = captureSession
+    captureSession = null
+    publishCaptureState()
+
+    await Promise.allSettled([...activeSession.pendingCaptures])
+
+    try {
+      const zipBlob = await activeSession.zip.generateAsync({ type: 'blob' })
+      downloadBlob(zipBlob, createCaptureDownloadName())
+    } finally {
+      captureStopping = false
+    }
+  }
+
   const simulationClient = new SimulationClient()
   const unsubscribeFrames = simulationClient.subscribeToFrames((frame) => {
     lastFrame = frame
@@ -364,6 +458,7 @@ export function createHelloCube(
   scene.add(axesHelper, gridHelper)
 
   let rotationSpeed = initialState.rotationSpeed
+  publishCaptureState()
   viewport.start((deltaSeconds) => {
     cube.rotation.y += rotationSpeed
     cube.rotation.x += rotationSpeed * 0.5
@@ -378,10 +473,11 @@ export function createHelloCube(
       }
       publishStats()
     }
-  })
+  }, capturePngFrame)
 
   return {
     dispose: () => {
+      void stopCaptureSession()
       scene.remove(
         cube,
         containerWireframe,
@@ -417,6 +513,18 @@ export function createHelloCube(
     },
     resetSimulation: () => {
       simulationClient.reset()
+    },
+    startPngCapture: () => {
+      if (captureSession !== null || captureStopping) {
+        return
+      }
+
+      captureSession = {
+        frameCount: 0,
+        pendingCaptures: new Set(),
+        zip: new JSZip(),
+      }
+      publishCaptureState()
     },
     stepSimulation: () => {
       simulationClient.step(simulationStepDt())
@@ -517,5 +625,6 @@ export function createHelloCube(
         )
       }
     },
+    stopPngCapture: () => stopCaptureSession(),
   }
 }
