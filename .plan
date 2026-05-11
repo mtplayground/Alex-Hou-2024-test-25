@@ -1,90 +1,58 @@
-ZeroClaw Architecture Plan
-==========================
+SSFR Architecture Plan (Issues #77-#86)
 
-Goal
-- Build a browser-based 3D SPH fluid playground with React/TypeScript UI, Three.js rendering, a worker-backed simulation core, local scene presets, and export tooling.
+1. Module structure and file organization
+- Keep `src/render` as the rendering boundary, but split the current `helloCube.ts` scene/controller into clearer responsibilities.
+- Issue #77 should remove the leftover smoke-test cube and rename/split the scene orchestration into a neutral module, e.g.:
+  - `src/render/SceneRenderer.ts` or `src/render/fluidScene.ts` for top-level scene orchestration
+  - keep `threeViewport.ts` for renderer/camera/RAF ownership
+  - keep `obstacles.ts`, `lighting.ts`, `materials.ts`, `particles.ts` for reusable scene helpers
+- Add SSFR-specific render modules under `src/render/ssfr/`:
+  - `targets.ts`: render-target creation/disposal
+  - `particleDepthPass.ts`: sphere-impostor depth pass
+  - `particleThicknessPass.ts`: additive thickness pass
+  - `bilateralBlurPass.ts`: separable depth blur
+  - `compositePass.ts`: normal reconstruction + water shading + final composite
+  - `SSFRRenderer.ts`: pass orchestration, resize handling, debug output selection
+  - `shaders/` or inline shader modules for vertex/fragment GLSL strings
+- Extend shared render helpers instead of duplicating scene transforms:
+  - reuse the existing container-centered coordinate convention from `particles.ts` and `obstacles.ts`
+  - keep one source of truth for particle frame data from `SimulationClient`
+- State remains in `src/store` and `src/types`:
+  - extend the scene/render settings in store rather than creating renderer-local config
+  - likely add SSFR params and debug modes to the scene/editor store, not `helloCubeStore`
 
-Recommended project structure
-- `src/main.tsx`: app bootstrap.
-- `src/App.tsx`: top-level layout shell composition.
-- `src/lib/utils.ts`: shared UI helpers from shadcn/ui.
-- `src/types/`
-  - `scene.ts`: container, obstacles, emitter, preset, visualization mode.
-  - `simulation.ts`: particle state views, parameter structs, stats, worker messages.
-  - `ui.ts`: control-bar and panel view models if needed.
-- `src/store/`
-  - `sceneStore.ts`: Zustand state for editable scene, sim controls, selected preset, visualization mode.
-- `src/sim/`
-  - `kernels.ts`: poly6, spiky gradient, viscosity laplacian.
-  - `spatialHash.ts`: neighbor lookup grid.
-  - `particles.ts`: particle arrays/buffers and initialization helpers.
-  - `forces.ts`: density, pressure, force accumulation.
-  - `integrator.ts`: semi-implicit Euler + boundary handling.
-  - `Simulation.ts`: orchestration entry point for the solver on the worker side.
-- `src/worker/`
-  - `protocol.ts`: shared message and payload definitions, imported by both main thread and worker.
-  - `simulationWorker.ts`: worker host bridging messages to `Simulation`.
-- `src/render/`
-  - `Renderer.ts`: Three.js renderer/scene/camera/resize lifecycle.
-  - `controls.ts`: OrbitControls setup.
-  - `container.ts`: container wireframe mesh generation/update.
-  - `particles.ts`: particle points or instanced mesh rendering.
-  - `obstacles.ts`: obstacle mesh generation/update.
-  - `lighting.ts`: default light rig and material setup.
-  - `colorModes.ts`: speed/density/pressure visualization mapping.
-- `src/components/`
-  - `layout/`: top bar, side panel, canvas shell.
-  - `controls/`: play/pause/step/reset/speed bar.
-  - `panels/`: scene editor, simulation params, preset manager.
-  - `overlays/`: stats overlay, onboarding, error banners.
-- `src/features/export/`
-  - `capture.ts`: PNG frame capture.
-  - `video.ts`: WebM recording flow and guards.
-- `src/presets/`
-  - `defaultScenes.ts`: shipped scenes and onboarding defaults.
-  - `storage.ts`: localStorage serialization/import/export helpers.
-- `src/test/`: shared test helpers.
-- `e2e/`: Playwright specs for happy path and export flow.
+2. Shared types and state shape
+- Introduce shared render-mode types in `src/types/scene.ts` or a render-focused type module:
+  - `RenderMode = 'particles' | 'fluid'`
+  - `SsfrDebugView = 'final' | 'depth' | 'thickness' | 'normal'`
+  - `SsfrParams` with water color, absorption/thickness scale, blur radius, blur iterations, Fresnel exponent, and debug toggles
+- Store should own all user-facing SSFR settings so they are serializable and preset-compatible.
+- Avoid baking SSFR options into the worker protocol unless needed; this is a render-only feature. The worker should continue to emit particle frames, while the main thread chooses how to render them.
 
-Shared type strategy
-- Keep `src/types/scene.ts` and `src/types/simulation.ts` framework-agnostic and serializable.
-- Prefer plain objects and typed arrays at the simulation boundary.
-- Define worker protocol once in `src/worker/protocol.ts` and reuse it from worker, client, and tests to avoid drift.
-- Store authoritative editable scene state in Zustand; derive render state and worker inputs from selectors/adapters instead of duplicating shape.
+3. Dependency and issue sequencing
+- #77 is the unblocker. Remove the demo cube and decouple the current scene module before adding more render paths.
+- #78 adds the first offscreen pass and establishes particle impostor rendering + depth target plumbing.
+- #79 reuses the impostor geometry path to accumulate thickness.
+- #80 depends on #78 and should operate only on the depth texture produced there.
+- #81 depends on #79 and #80 and should introduce `SSFRRenderer` as the multi-pass orchestrator.
+- #82 should wire store-driven `renderMode` switching between the existing `InstancedMesh` path and the new SSFR pipeline.
+- #83 can then expose SSFR parameters in the UI/store.
+- #84 builds on the SSFR renderer by exposing intermediate render targets for debugging.
+- #85 should test the SSFR renderer at the integration level with fixed particle inputs and pixel assertions.
+- #86 finishes documentation and tunes built-in scenes/camera defaults so the fluid mode looks correct immediately.
 
-Core design decisions
-- Simulation runs off the main thread in a Web Worker beginning with issue #17; earlier simulation modules should already avoid DOM/React dependencies so they drop into the worker without refactor.
-- Use structure-of-arrays for particle state (`Float32Array`/`Uint32Array`) instead of arrays of objects. This keeps neighbor search, density/force passes, and worker transfer efficient.
-- Treat scene description separately from runtime particle buffers. Scene data is durable/serializable; particle buffers are ephemeral runtime state.
-- Use a single `SimulationClient` abstraction on the main thread to hide worker lifecycle, stepping, reset, and state snapshots.
-- Start rendering particles with `THREE.Points` for the smoke path; keep the render adapter isolated so later instanced spheres remain possible without changing the simulation API.
-- Use conservative parameter clamping and particle-count safety rails in store selectors and worker validation, not only in UI inputs.
-- Keep export features layered on top of the existing renderer/canvas rather than introducing a second render path.
+4. Key design decisions
+- Do not change the simulation pipeline for SSFR. Treat SSFR as a pure rendering layer on top of the existing `SimulationClient` frame stream.
+- Preserve the current particle `InstancedMesh` path as a fallback/debug render mode; SSFR should be additive, not a replacement until proven stable.
+- Centralize resize/disposal in `SSFRRenderer` so all render targets and fullscreen resources are recreated consistently with viewport size changes.
+- Keep obstacle boxes, helpers, and container wireframe in the normal scene graph. SSFR should composite fluid with the same camera/depth context so overlays remain correct.
+- Prefer explicit pass objects with `render()`, `resize()`, and `dispose()` methods over one large monolithic renderer file.
+- Reuse the existing scene-store serialization path so SSFR mode/params become preset-safe and survive import/export.
+- Keep debug views first-class in the renderer contract; they will materially reduce iteration cost on issues #81-#85.
+- Tests should favor deterministic fixed particle snapshots and offscreen rendering rather than trying to validate the full simulation numerics again.
 
-Issue dependency map
-- Foundation: #1 -> #2 -> #3 -> #4 -> #5.
-- Rendering base: #6 -> #7 -> #8 -> #9.
-- Simulation core: #10 -> #11 -> #12 -> #13 -> #14 -> #15 -> #16.
-- Worker integration: #17 -> #18 -> #19.
-- App state and scene model: #20.
-- Scene content features: #21 -> #22 -> #23.
-- UI shell and controls: #24 -> #25 -> #26 -> #27 -> #28 -> #29.
-- Persistence/export: #30 -> #31 -> #32 -> #33.
-- End-to-end coverage: #34 and #35 after their respective features land.
-- Polish/documentation: #36 -> #37 -> #38.
-
-Cross-cutting implementation notes
-- Issue #20 should reconcile the earlier worker/client APIs with the UI control model; do not let UI components talk directly to Three.js or worker objects.
-- Issue #21 should reuse obstacle geometry definitions for both rendering and collision to prevent divergence.
-- Issue #30 should serialize only durable scene + parameter state, never transient worker buffers.
-- Issue #34 and #35 should rely on stable `data-testid` hooks introduced with the relevant UI features rather than retrofitting selectors later.
-- Issue #37 should centralize validation utilities so UI forms, preset import, and worker messages all enforce the same limits.
-
-Suggested acceptance direction for future sessions
-- Each issue should preserve compile-and-run behavior, even when a feature is only a scaffold.
-- Public boundaries likely to survive the full project:
-  - `SceneState` / `ScenePreset`
-  - `SimulationParams`
-  - `SimulationSnapshot`
-  - `WorkerRequest` / `WorkerResponse`
-  - `SimulationClient`
+5. Risks to watch
+- `helloCube.ts` currently owns too many responsibilities; refactor incrementally in #77 so later issues do not fight file churn.
+- The existing main bundle is already large, so avoid unnecessary duplication of geometry/material/shader setup.
+- Fullscreen pass and offscreen render-target code must stay compatible with Vite/Playwright/headless verification.
+- Store additions should remain backward-compatible with current presets and built-in scenes.
