@@ -13,7 +13,7 @@ test('runs the happy path simulation flow', async ({ page }) => {
     }),
   ).toBeVisible()
   await expect(
-    page.getByRole('heading', { name: /Hello-Cube smoke test/i }),
+    page.getByRole('heading', { name: /Fluid scene viewport/i }),
   ).toBeVisible()
 
   const simulationToggle = page.locator(

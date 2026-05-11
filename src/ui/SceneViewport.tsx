@@ -8,17 +8,17 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import {
-  createHelloCube,
-  type HelloCubeController,
-  type HelloCubeStats,
+  createPlaygroundScene,
   type PngCaptureState,
+  type PlaygroundSceneController,
+  type PlaygroundSceneStats,
   type WebmCaptureState,
-} from '@/render/helloCube'
-import { useHelloCubeStore } from '@/store/helloCubeStore'
+} from '@/render/playgroundScene'
+import { useViewportStore } from '@/store/viewportStore'
 import { useSceneStore } from '@/store'
 
-interface HelloCubeCanvasProps {
-  onControllerChange?: (controller: HelloCubeController | null) => void
+interface SceneViewportProps {
+  onControllerChange?: (controller: PlaygroundSceneController | null) => void
   onPngCaptureChange?: (state: PngCaptureState) => void
   onSimulationError?: (message: string) => void
   onSimulationReadyChange?: (running: boolean) => void
@@ -26,31 +26,28 @@ interface HelloCubeCanvasProps {
   simulationSpeed?: number
 }
 
-export function HelloCubeCanvas({
+export function SceneViewport({
   onControllerChange,
   onPngCaptureChange,
   onSimulationError,
   onSimulationReadyChange,
   onWebmCaptureChange,
   simulationSpeed = 1,
-}: HelloCubeCanvasProps) {
+}: SceneViewportProps) {
   const [containerNode, setContainerNode] = useState<HTMLDivElement | null>(
     null,
   )
-  const controllerRef = useRef<HelloCubeController | null>(null)
+  const controllerRef = useRef<PlaygroundSceneController | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [stats, setStats] = useState<HelloCubeStats>({
+  const [stats, setStats] = useState<PlaygroundSceneStats>({
     particleCount: 0,
     renderFps: 0,
     simTime: 0,
     stepRate: 0,
   })
-  const containerSize = useHelloCubeStore((state) => state.containerSize)
-  const rotationSpeed = useHelloCubeStore((state) => state.rotationSpeed)
-  const showHelpers = useHelloCubeStore((state) => state.showHelpers)
-  const visualizationMode = useHelloCubeStore(
-    (state) => state.visualizationMode,
-  )
+  const containerSize = useViewportStore((state) => state.containerSize)
+  const showHelpers = useViewportStore((state) => state.showHelpers)
+  const visualizationMode = useViewportStore((state) => state.visualizationMode)
   const scene = useSceneStore((state) => state.scene)
   const emitter = scene.emitter
   const obstacles = scene.obstacles
@@ -69,10 +66,10 @@ export function HelloCubeCanvas({
     }
 
     try {
-      const initialState = useHelloCubeStore.getState()
+      const initialState = useViewportStore.getState()
       const sceneState = useSceneStore.getState().scene
 
-      controllerRef.current = createHelloCube(containerNode, {
+      controllerRef.current = createPlaygroundScene(containerNode, {
         containerSize: initialState.containerSize,
         emitter: sceneState.emitter,
         initialFluid: sceneState.initialFluid,
@@ -84,7 +81,6 @@ export function HelloCubeCanvas({
         onSimulationReadyChange: onSimulationReadyChange ?? undefined,
         onStatsChange: setStats,
         ...(onWebmCaptureChange === undefined ? {} : { onWebmCaptureChange }),
-        rotationSpeed: initialState.rotationSpeed,
         simParams: sceneState.simParams,
         simulationSpeed,
         showHelpers: initialState.showHelpers,
@@ -128,10 +124,6 @@ export function HelloCubeCanvas({
   }, [containerSize])
 
   useEffect(() => {
-    controllerRef.current?.setRotationSpeed(rotationSpeed)
-  }, [rotationSpeed])
-
-  useEffect(() => {
     controllerRef.current?.setHelpersVisible(showHelpers)
   }, [showHelpers])
 
@@ -162,13 +154,12 @@ export function HelloCubeCanvas({
   return (
     <Card className="overflow-hidden border-white/10 bg-slate-950/40 shadow-2xl shadow-slate-950/20 backdrop-blur-sm">
       <CardHeader className="border-b border-white/10">
-        <CardTitle className="text-white">Hello-Cube smoke test</CardTitle>
+        <CardTitle className="text-white">Fluid scene viewport</CardTitle>
         <CardDescription>
-          A minimal Three.js scene renders a rotating cube, XYZ axes, an XZ
-          grid, a reactive simulation container wireframe, and particle frames
-          streamed from the simulation worker from the scene store&apos;s active
-          fluid source, whether that source is an initial block lattice or a
-          continuous emitter.
+          The Three.js viewport renders helpers, the container wireframe,
+          obstacle boxes, and particle frames streamed from the simulation
+          worker using the active scene-store fluid source, whether that source
+          is an initial block lattice or a continuous emitter.
         </CardDescription>
       </CardHeader>
       <CardContent className="p-0">

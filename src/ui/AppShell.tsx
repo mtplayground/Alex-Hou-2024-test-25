@@ -34,7 +34,7 @@ import {
   storeModuleSummary,
   useSceneStore,
 } from '@/store'
-import { type ContainerSize, useHelloCubeStore } from '@/store/helloCubeStore'
+import { type ContainerSize, useViewportStore } from '@/store/viewportStore'
 import { cn } from '@/lib/utils'
 import { workerModuleSummary } from '@/workers'
 import { Button } from '@/components/ui/button'
@@ -47,8 +47,8 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Slider } from '@/components/ui/slider'
-import { HelloCubeCanvas } from '@/ui/HelloCubeCanvas'
-import type { HelloCubeController } from '@/render/helloCube'
+import type { PlaygroundSceneController } from '@/render/playgroundScene'
+import { SceneViewport } from '@/ui/SceneViewport'
 
 const sections = [
   simulationModuleSummary,
@@ -271,18 +271,14 @@ function ControlPanelBody({
   webmCaptureFramerate,
   onWebmCaptureFramerateChange,
 }: ControlPanelBodyProps) {
-  const rotationSpeed = useHelloCubeStore((state) => state.rotationSpeed)
-  const showHelpers = useHelloCubeStore((state) => state.showHelpers)
-  const setRotationSpeed = useHelloCubeStore((state) => state.setRotationSpeed)
-  const setVisualizationMode = useHelloCubeStore(
+  const showHelpers = useViewportStore((state) => state.showHelpers)
+  const setVisualizationMode = useViewportStore(
     (state) => state.setVisualizationMode,
   )
-  const toggleHelpers = useHelloCubeStore((state) => state.toggleHelpers)
-  const visualizationMode = useHelloCubeStore(
-    (state) => state.visualizationMode,
-  )
-  const reset = useHelloCubeStore((state) => state.reset)
-  const syncViewportContainer = useHelloCubeStore(
+  const toggleHelpers = useViewportStore((state) => state.toggleHelpers)
+  const visualizationMode = useViewportStore((state) => state.visualizationMode)
+  const reset = useViewportStore((state) => state.reset)
+  const syncViewportContainer = useViewportStore(
     (state) => state.setContainerSize,
   )
   const scene = useSceneStore((state) => state.scene)
@@ -717,20 +713,6 @@ function ControlPanelBody({
             <Button onClick={toggleHelpers} variant="secondary">
               {showHelpers ? 'Hide helpers' : 'Show helpers'}
             </Button>
-          </div>
-
-          <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-            <div className="flex items-center justify-between text-sm text-slate-300">
-              <span>Viewport rotation</span>
-              <span>{rotationSpeed.toFixed(3)} rad / frame</span>
-            </div>
-            <Slider
-              max={0.08}
-              min={0.005}
-              onValueChange={(value) => setRotationSpeed(value[0] ?? 0.02)}
-              step={0.001}
-              value={[rotationSpeed]}
-            />
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
@@ -1402,7 +1384,7 @@ function ControlPanelBody({
 export function AppShell() {
   const [panelOpen, setPanelOpen] = useState(true)
   const [simulationController, setSimulationController] =
-    useState<HelloCubeController | null>(null)
+    useState<PlaygroundSceneController | null>(null)
   const [pngCaptureActive, setPngCaptureActive] = useState(false)
   const [pngCaptureBusy, setPngCaptureBusy] = useState(false)
   const [pngCaptureFrameCount, setPngCaptureFrameCount] = useState(0)
@@ -1413,11 +1395,11 @@ export function AppShell() {
   const [simulationSpeed, setSimulationSpeed] = useState(1)
   const [simulationToast, setSimulationToast] = useState<string | null>(null)
   const scene = useSceneStore((state) => state.scene)
-  const showHelpers = useHelloCubeStore((state) => state.showHelpers)
+  const showHelpers = useViewportStore((state) => state.showHelpers)
   const hasSimulationController = simulationController !== null
 
   const handleControllerChange = useCallback(
-    (controller: HelloCubeController | null) => {
+    (controller: PlaygroundSceneController | null) => {
       setSimulationController(controller)
 
       if (controller === null) {
@@ -1619,7 +1601,7 @@ export function AppShell() {
           >
             <section className="min-w-0">
               <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-2 shadow-2xl shadow-black/20">
-                <HelloCubeCanvas
+                <SceneViewport
                   onControllerChange={handleControllerChange}
                   onPngCaptureChange={handlePngCaptureChange}
                   onSimulationError={handleSimulationError}
