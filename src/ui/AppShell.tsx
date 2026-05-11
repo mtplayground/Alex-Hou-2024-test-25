@@ -8,9 +8,12 @@ import {
   PanelLeft,
   Pause,
   Play,
+  Plus,
   RotateCw,
   Sparkles,
   StepForward,
+  Trash2,
+  Waves,
 } from 'lucide-react'
 import { appDefaults } from '@/config/env'
 import { renderModuleSummary } from '@/render'
@@ -38,6 +41,10 @@ const sections = [
   storeModuleSummary,
   workerModuleSummary,
 ]
+
+const AXES = ['x', 'y', 'z'] as const
+
+type AxisKey = (typeof AXES)[number]
 
 function MetricPill({ label, value }: { label: string; value: string }) {
   return (
@@ -74,6 +81,103 @@ function ModuleSummaryCards() {
   )
 }
 
+function axisLabel(axis: AxisKey): string {
+  return axis.toUpperCase()
+}
+
+function axisIndex(axis: AxisKey): 0 | 1 | 2 {
+  switch (axis) {
+    case 'x':
+      return 0
+    case 'y':
+      return 1
+    case 'z':
+      return 2
+  }
+}
+
+function clampPositive(value: number, fallback: number): number {
+  return Number.isFinite(value) && value > 0 ? value : fallback
+}
+
+function NumericInput({
+  className,
+  label,
+  min,
+  onChange,
+  step = 0.1,
+  value,
+}: {
+  className?: string
+  label: string
+  min?: number
+  onChange: (value: number) => void
+  step?: number
+  value: number
+}) {
+  return (
+    <label className={cn('space-y-2', className)}>
+      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+        {label}
+      </span>
+      <Input
+        {...(min === undefined ? {} : { min: min.toString() })}
+        onChange={(event) => {
+          const nextValue = Number(event.target.value)
+
+          if (!Number.isFinite(nextValue)) {
+            return
+          }
+
+          onChange(nextValue)
+        }}
+        step={step.toString()}
+        type="number"
+        value={value}
+      />
+    </label>
+  )
+}
+
+function VectorEditor({
+  label,
+  min,
+  onAxisChange,
+  step = 0.1,
+  values,
+}: {
+  label: string
+  min?: number
+  onAxisChange: (axis: AxisKey, value: number) => void
+  step?: number
+  values: readonly [number, number, number]
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+        {label}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {AXES.map((axis) => {
+          const index = axisIndex(axis)
+          const axisValue = values[index]
+
+          return (
+            <NumericInput
+              key={axis}
+              label={axisLabel(axis)}
+              {...(min === undefined ? {} : { min })}
+              onChange={(value) => onAxisChange(axis, value)}
+              step={step}
+              value={axisValue}
+            />
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 interface ControlPanelBodyProps {
   hasSimulationController: boolean
   onPauseSimulation: () => void
@@ -95,14 +199,22 @@ function ControlPanelBody({
   simulationRunning,
   simulationSpeed,
 }: ControlPanelBodyProps) {
-  const containerSize = useHelloCubeStore((state) => state.containerSize)
   const rotationSpeed = useHelloCubeStore((state) => state.rotationSpeed)
   const showHelpers = useHelloCubeStore((state) => state.showHelpers)
-  const setContainerSize = useHelloCubeStore((state) => state.setContainerSize)
   const setRotationSpeed = useHelloCubeStore((state) => state.setRotationSpeed)
   const toggleHelpers = useHelloCubeStore((state) => state.toggleHelpers)
   const reset = useHelloCubeStore((state) => state.reset)
+  const syncViewportContainer = useHelloCubeStore(
+    (state) => state.setContainerSize,
+  )
   const scene = useSceneStore((state) => state.scene)
+  const addObstacle = useSceneStore((state) => state.addObstacle)
+  const removeObstacle = useSceneStore((state) => state.removeObstacle)
+  const resetScene = useSceneStore((state) => state.resetScene)
+  const setEmitter = useSceneStore((state) => state.setEmitter)
+  const setInitialFluid = useSceneStore((state) => state.setInitialFluid)
+  const setSceneContainer = useSceneStore((state) => state.setContainer)
+  const updateObstacle = useSceneStore((state) => state.updateObstacle)
 
   const updateContainerDimension =
     (dimension: keyof ContainerSize) =>
@@ -113,14 +225,92 @@ function ControlPanelBody({
         return
       }
 
-      setContainerSize({
-        ...containerSize,
+      const nextContainer = {
+        ...scene.container,
         [dimension]: nextValue,
-      })
+      }
+
+      setSceneContainer(nextContainer)
+      syncViewportContainer(nextContainer)
     }
 
   const sourceLabel =
     scene.emitter === undefined ? 'Initial block' : 'Continuous emitter'
+
+  const createEmitterScene = () => {
+    const { depth, height, width } = scene.container
+
+    setEmitter({
+      direction: [0, -1, 0],
+      particleCap: appDefaults.defaultParticleCount,
+      position: [width * 0.5, height * 0.85, depth * 0.5],
+      rate: appDefaults.defaultEmitterRate,
+      speed: 2.5,
+    })
+  }
+
+  const createInitialFluidScene = () => {
+    const { depth, height, width } = scene.container
+
+    setInitialFluid({
+      origin: [width * 0.22, height * 0.32, depth * 0.22],
+      size: [width * 0.3, height * 0.24, depth * 0.3],
+    })
+  }
+
+  const updateObstacleAxis = (
+    obstacleId: string,
+    vectorKey: 'center' | 'size',
+    axis: AxisKey,
+    nextValue: number,
+  ) => {
+    const obstacle = scene.obstacles.find(
+      (candidate) => candidate.id === obstacleId,
+    )
+
+    if (obstacle === undefined) {
+      return
+    }
+
+    const currentVector = obstacle[vectorKey]
+    const nextVector: [number, number, number] = [
+      currentVector[0],
+      currentVector[1],
+      currentVector[2],
+    ]
+
+    nextVector[axisIndex(axis)] =
+      vectorKey === 'size'
+        ? clampPositive(nextValue, nextVector[axisIndex(axis)])
+        : nextValue
+
+    updateObstacle(obstacleId, {
+      [vectorKey]: nextVector,
+    })
+  }
+
+  const updateEmitterAxis = (
+    vectorKey: 'direction' | 'position',
+    axis: AxisKey,
+    nextValue: number,
+  ) => {
+    if (scene.emitter === undefined) {
+      return
+    }
+
+    const currentVector = scene.emitter[vectorKey]
+    const nextVector: [number, number, number] = [
+      currentVector[0],
+      currentVector[1],
+      currentVector[2],
+    ]
+    nextVector[axisIndex(axis)] = nextValue
+
+    setEmitter({
+      ...scene.emitter,
+      [vectorKey]: nextVector,
+    })
+  }
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -214,7 +404,13 @@ function ControlPanelBody({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button className="gap-2" onClick={reset}>
+            <Button
+              className="gap-2"
+              onClick={() => {
+                reset()
+                resetScene()
+              }}
+            >
               Reset viewport
               <RotateCw className="size-4" />
             </Button>
@@ -242,6 +438,43 @@ function ControlPanelBody({
               <Cuboid className="size-4 text-sky-300" />
               Container dimensions
             </div>
+            <div className="mb-4 space-y-4">
+              {(
+                [
+                  ['width', 'Container width'],
+                  ['height', 'Container height'],
+                  ['depth', 'Container depth'],
+                ] as const
+              ).map(([dimension, label]) => (
+                <div className="space-y-3" key={dimension}>
+                  <div className="flex items-center justify-between text-sm text-slate-300">
+                    <span>{label}</span>
+                    <span>{scene.container[dimension].toFixed(1)}</span>
+                  </div>
+                  <Slider
+                    max={dimension === 'height' ? 6 : 8}
+                    min={2}
+                    onValueChange={(value) => {
+                      const nextValue = value[0]
+
+                      if (nextValue === undefined) {
+                        return
+                      }
+
+                      const nextContainer = {
+                        ...scene.container,
+                        [dimension]: nextValue,
+                      }
+
+                      setSceneContainer(nextContainer)
+                      syncViewportContainer(nextContainer)
+                    }}
+                    step={0.1}
+                    value={[scene.container[dimension]]}
+                  />
+                </div>
+              ))}
+            </div>
             <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
               <label className="space-y-2">
                 <span className="text-sm font-medium text-slate-200">
@@ -252,7 +485,7 @@ function ControlPanelBody({
                   onChange={updateContainerDimension('width')}
                   step="0.1"
                   type="number"
-                  value={containerSize.width}
+                  value={scene.container.width}
                 />
               </label>
               <label className="space-y-2">
@@ -264,7 +497,7 @@ function ControlPanelBody({
                   onChange={updateContainerDimension('height')}
                   step="0.1"
                   type="number"
-                  value={containerSize.height}
+                  value={scene.container.height}
                 />
               </label>
               <label className="space-y-2">
@@ -276,9 +509,171 @@ function ControlPanelBody({
                   onChange={updateContainerDimension('depth')}
                   step="0.1"
                   type="number"
-                  value={containerSize.depth}
+                  value={scene.container.depth}
                 />
               </label>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-white">
+                <Waves className="size-4 text-sky-300" />
+                Fluid source
+              </div>
+              <Button
+                onClick={() => {
+                  if (scene.emitter === undefined) {
+                    createEmitterScene()
+                    return
+                  }
+
+                  createInitialFluidScene()
+                }}
+                size="sm"
+                variant="secondary"
+              >
+                {scene.emitter === undefined ? 'Enable emitter' : 'Use block'}
+              </Button>
+            </div>
+
+            {scene.emitter ? (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-slate-300">
+                  Continuous emitter mode is active. New particles stream from
+                  the emitter position at the configured rate until the cap is
+                  reached.
+                </div>
+                <VectorEditor
+                  label="Emitter position"
+                  min={0}
+                  onAxisChange={(axis, value) =>
+                    updateEmitterAxis('position', axis, value)
+                  }
+                  values={scene.emitter.position}
+                />
+                <VectorEditor
+                  label="Emitter direction"
+                  onAxisChange={(axis, value) =>
+                    updateEmitterAxis('direction', axis, value)
+                  }
+                  values={scene.emitter.direction}
+                />
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <NumericInput
+                    label="Rate"
+                    min={1}
+                    onChange={(value) =>
+                      setEmitter({
+                        ...scene.emitter,
+                        rate: clampPositive(value, scene.emitter.rate),
+                      })
+                    }
+                    step={1}
+                    value={scene.emitter.rate}
+                  />
+                  <NumericInput
+                    label="Speed"
+                    min={0}
+                    onChange={(value) =>
+                      setEmitter({
+                        ...scene.emitter,
+                        speed: clampPositive(value, scene.emitter.speed),
+                      })
+                    }
+                    step={0.1}
+                    value={scene.emitter.speed}
+                  />
+                  <NumericInput
+                    label="Cap"
+                    min={1}
+                    onChange={(value) =>
+                      setEmitter({
+                        ...scene.emitter,
+                        particleCap: Math.max(1, Math.round(value)),
+                      })
+                    }
+                    step={1}
+                    value={scene.emitter.particleCap}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-white/10 bg-black/20 p-4 text-sm leading-6 text-slate-300">
+                Initial block mode is active. Toggle the emitter on to stream
+                particles continuously from a live source.
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-white">
+                <Boxes className="size-4 text-sky-300" />
+                Obstacles
+              </div>
+              <Button
+                onClick={() =>
+                  addObstacle({
+                    center: [
+                      scene.container.width * 0.5,
+                      scene.container.height * 0.35,
+                      scene.container.depth * 0.5,
+                    ],
+                    id: `obstacle-${Math.random().toString(36).slice(2, 8)}`,
+                    size: [0.8, 0.6, 0.8],
+                  })
+                }
+                size="sm"
+              >
+                Add obstacle
+                <Plus className="size-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              {scene.obstacles.map((obstacle, index) => (
+                <div
+                  className="rounded-xl border border-white/10 bg-black/20 p-4"
+                  key={obstacle.id}
+                >
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-medium text-white">
+                        Obstacle {index + 1}
+                      </div>
+                      <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                        {obstacle.id}
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => removeObstacle(obstacle.id)}
+                      size="icon"
+                      variant="ghost"
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <VectorEditor
+                      label="Center"
+                      onAxisChange={(axis, value) =>
+                        updateObstacleAxis(obstacle.id, 'center', axis, value)
+                      }
+                      values={obstacle.center}
+                    />
+                    <VectorEditor
+                      label="Size"
+                      min={0.1}
+                      onAxisChange={(axis, value) =>
+                        updateObstacleAxis(obstacle.id, 'size', axis, value)
+                      }
+                      values={obstacle.size}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -300,9 +695,9 @@ function ControlPanelBody({
                 .
               </p>
               <p>
-                Current container: {containerSize.width.toFixed(1)} x{' '}
-                {containerSize.height.toFixed(1)} x{' '}
-                {containerSize.depth.toFixed(1)}
+                Current container: {scene.container.width.toFixed(1)} x{' '}
+                {scene.container.height.toFixed(1)} x{' '}
+                {scene.container.depth.toFixed(1)}
               </p>
             </div>
           </div>

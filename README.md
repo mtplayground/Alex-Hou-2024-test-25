@@ -96,3 +96,5 @@ Issue #23 adds continuous emitter mode with a particle cap, worker-side spawning
 Issue #24 reshapes the app into a responsive workspace shell with a top bar, a canvas-first main viewport, and a collapsible side panel for controls.
 
 Issue #25 adds a simulation control bar wired to the worker client, including play, pause, step, reset, speed scaling, and keyboard shortcuts for play/pause and reset.
+
+Issue #26 expands the side panel into a scene editor with container controls, live obstacle add/remove/edit controls, and emitter toggles plus parameter editing.
