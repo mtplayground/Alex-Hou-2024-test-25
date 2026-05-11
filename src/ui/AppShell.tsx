@@ -25,9 +25,9 @@ const sections = [
 
 export function AppShell() {
   const rotationSpeed = useHelloCubeStore((state) => state.rotationSpeed)
-  const showAxes = useHelloCubeStore((state) => state.showAxes)
+  const showHelpers = useHelloCubeStore((state) => state.showHelpers)
   const setRotationSpeed = useHelloCubeStore((state) => state.setRotationSpeed)
-  const toggleAxes = useHelloCubeStore((state) => state.toggleAxes)
+  const toggleHelpers = useHelloCubeStore((state) => state.toggleHelpers)
   const reset = useHelloCubeStore((state) => state.reset)
 
   return (
@@ -35,27 +35,27 @@ export function AppShell() {
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
         <div className="inline-flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.28em] text-sky-300">
           <span className="h-px w-10 bg-current" />
-          Issue 4 of 38
+          Issue 7 of 38
         </div>
 
         <section className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_360px]">
           <div className="space-y-5">
             <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-              Three.js is integrated with a live Hello-Cube smoke scene.
+              Three.js now renders an orbitable cube with axes and a grid.
             </h1>
             <p className="max-w-2xl text-base leading-7 text-slate-300">
-              This pass formalizes the viewport layer. The smoke scene now runs
-              on a dedicated renderer + scene + perspective camera setup with
-              OrbitControls, requestAnimationFrame rendering, and container
-              resize handling.
+              This pass adds the first scene helpers. The viewport now shows an
+              XYZ axes helper and an XZ grid, both driven by a single Zustand
+              flag so later scene editing work can treat helper visibility as
+              real application state.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Button className="gap-2" onClick={reset}>
                 Reset smoke test
                 <RotateCw className="size-4" />
               </Button>
-              <Button onClick={toggleAxes} variant="secondary">
-                {showAxes ? 'Hide axes helper' : 'Show axes helper'}
+              <Button onClick={toggleHelpers} variant="secondary">
+                {showHelpers ? 'Hide helpers' : 'Show helpers'}
               </Button>
             </div>
           </div>
@@ -91,9 +91,10 @@ export function AppShell() {
                   Active scene
                 </div>
                 <p className="mt-2 leading-6 text-slate-300">
-                  A lit cube rotates in place with an axes helper anchored at
-                  the origin. Drag to orbit the camera and use the mouse wheel
-                  to zoom while the scene continues to animate.
+                  A lit cube rotates in place with red, green, and blue XYZ axes
+                  plus a grid projected on the XZ plane. Drag to orbit the
+                  camera and use the mouse wheel to zoom while the scene
+                  continues to animate.
                 </p>
                 <div className="mt-3 grid gap-1 text-xs uppercase tracking-[0.16em] text-slate-400">
                   <span>

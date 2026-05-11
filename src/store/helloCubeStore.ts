@@ -3,20 +3,20 @@ import { create } from 'zustand'
 
 interface HelloCubeState {
   rotationSpeed: number
-  showAxes: boolean
+  showHelpers: boolean
   setRotationSpeed: (rotationSpeed: number) => void
-  toggleAxes: () => void
+  toggleHelpers: () => void
   reset: () => void
 }
 
 export const useHelloCubeStore = create<HelloCubeState>((set) => ({
   rotationSpeed: appDefaults.rotationSpeed,
-  showAxes: appDefaults.showAxes,
+  showHelpers: appDefaults.showHelpers,
   setRotationSpeed: (rotationSpeed) => set({ rotationSpeed }),
-  toggleAxes: () => set((state) => ({ showAxes: !state.showAxes })),
+  toggleHelpers: () => set((state) => ({ showHelpers: !state.showHelpers })),
   reset: () =>
     set({
       rotationSpeed: appDefaults.rotationSpeed,
-      showAxes: appDefaults.showAxes,
+      showHelpers: appDefaults.showHelpers,
     }),
 }))
