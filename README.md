@@ -112,3 +112,5 @@ Issue #31 adds a preset-manager UI for saving, loading, deleting, importing, and
 Issue #32 adds PNG frame capture for the viewport canvas, with start/stop controls that bundle captured frames into a downloadable zip archive.
 
 Issue #33 adds WebM viewport recording through `canvas.captureStream()` and `MediaRecorder`, with a configurable export framerate in the control bar.
+
+Issue #36 adds three built-in starter scenes, a default first-visit scene load, and lightweight onboarding so the workspace opens with a ready-to-run setup instead of an empty editor state.
