@@ -7,6 +7,8 @@ Browser-based fluid playground scaffolded with Vite, React, and TypeScript.
 - Vite
 - React
 - TypeScript
+- ESLint
+- Prettier
 
 ## Development
 
@@ -19,9 +21,12 @@ npm run dev
 
 The app is configured to serve on `0.0.0.0:8080`.
 
-## Build
+## Quality checks
 
 ```bash
+npm run lint
+npm run format
+npm run typecheck
 npm run build
 ```
 
@@ -33,4 +38,4 @@ npm run build
 - `src/store`: app state modules
 - `src/workers`: worker entrypoints and message plumbing
 
-This issue only establishes the project scaffold and repo hygiene. Later issues add the simulation, rendering, worker integration, and UI features.
+Issue #2 configures linting, formatting, and strict TypeScript rules on top of the initial scaffold.
