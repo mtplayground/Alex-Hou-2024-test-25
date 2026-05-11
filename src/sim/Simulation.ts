@@ -28,6 +28,15 @@ function mergeSimParams(overrides?: Partial<SimParams>): SimParams {
   }
 }
 
+function cloneObstacles(
+  obstacles: readonly BoxObstacle[],
+): readonly BoxObstacle[] {
+  return obstacles.map((obstacle) => ({
+    center: [...obstacle.center] as Vec3,
+    size: [...obstacle.size] as Vec3,
+  }))
+}
+
 function assertInitialized<T>(value: T | null, name: string): T {
   if (value === null) {
     throw new Error(`Simulation ${name} is not initialized. Call init() first.`)
@@ -91,10 +100,7 @@ export class Simulation {
     this.initialPositions = positions
     this.initialVelocities = velocities
     this.initialObstacles = config.obstacles
-      ? config.obstacles.map((obstacle) => ({
-          center: [...obstacle.center] as Vec3,
-          size: [...obstacle.size] as Vec3,
-        }))
+      ? cloneObstacles(config.obstacles)
       : []
     this.particles = particles
   }
@@ -103,6 +109,12 @@ export class Simulation {
     return new Float32Array(
       assertInitialized(this.particles, 'particle buffer').positions,
     )
+  }
+
+  get simulationParams(): SimParams {
+    return {
+      ...assertInitialized(this.params, 'params'),
+    }
   }
 
   reset(): void {
@@ -140,5 +152,18 @@ export class Simulation {
     computeDensityPressure(particles, stepParams)
     accumulateForces(particles, stepParams)
     integrateParticles(particles, stepParams, this.initialObstacles)
+  }
+
+  updateParams(overrides: Partial<SimParams>): void {
+    const params = assertInitialized(this.params, 'params')
+    this.params = mergeSimParams({
+      ...params,
+      ...overrides,
+    })
+  }
+
+  updateObstacles(obstacles: readonly BoxObstacle[]): void {
+    assertInitialized(this.particles, 'particle buffer')
+    this.initialObstacles = cloneObstacles(obstacles)
   }
 }
