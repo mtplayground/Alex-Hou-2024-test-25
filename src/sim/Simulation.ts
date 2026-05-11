@@ -88,6 +88,8 @@ export class Simulation {
 
   private emitter: SimulationEmitter | null = null
 
+  private elapsedTime = 0
+
   private emittedParticleCount = 0
 
   private initialObstacles: readonly BoxObstacle[] = []
@@ -142,6 +144,7 @@ export class Simulation {
     particles.setActiveCount(positions.length)
 
     this.params = params
+    this.elapsedTime = 0
     this.emissionAccumulator = 0
     this.emittedParticleCount = 0
     this.emitter = emitter
@@ -166,6 +169,15 @@ export class Simulation {
     }
   }
 
+  get particleCount(): number {
+    return assertInitialized(this.particles, 'particle buffer').activeCount
+  }
+
+  get simTime(): number {
+    assertInitialized(this.particles, 'particle buffer')
+    return this.elapsedTime
+  }
+
   reset(): void {
     const particles = assertInitialized(this.particles, 'particle buffer')
     const initialPositions = assertInitialized(
@@ -187,6 +199,7 @@ export class Simulation {
       particles.setPressure(index, 0)
     })
     particles.setActiveCount(initialPositions.length)
+    this.elapsedTime = 0
     this.emissionAccumulator = 0
     this.emittedParticleCount = 0
   }
@@ -208,6 +221,7 @@ export class Simulation {
     computeDensityPressure(particles, stepParams)
     accumulateForces(particles, stepParams)
     integrateParticles(particles, stepParams, this.initialObstacles)
+    this.elapsedTime += dt
   }
 
   updateParams(overrides: Partial<SimParams>): void {

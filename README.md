@@ -98,3 +98,7 @@ Issue #24 reshapes the app into a responsive workspace shell with a top bar, a c
 Issue #25 adds a simulation control bar wired to the worker client, including play, pause, step, reset, speed scaling, and keyboard shortcuts for play/pause and reset.
 
 Issue #26 expands the side panel into a scene editor with container controls, live obstacle add/remove/edit controls, and emitter toggles plus parameter editing.
+
+Issue #27 adds a safe simulation-parameter panel for gravity, viscosity, rest density, and particle budget controls, with clamped ranges to reduce unstable configurations.
+
+Issue #28 adds a live HUD overlay to the Three.js viewport for render FPS, simulation step rate, active particle count, and elapsed simulation time.

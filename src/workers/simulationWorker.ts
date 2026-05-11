@@ -6,6 +6,7 @@ import {
   positionsTransferList,
   type SimulationErrorMessage,
   type SimulationReadyMessage,
+  type SimulationStatsMessage,
   type SimulationWorkerRequest,
   type SimulationWorkerResponse,
 } from '@/workers/protocol'
@@ -21,6 +22,8 @@ export class SimulationWorkerHost {
   private frameDt = 1 / 60
 
   private initialized = false
+
+  private lastStepTimestamp: number | null = null
 
   private readonly simulation = new Simulation()
 
@@ -82,6 +85,19 @@ export class SimulationWorkerHost {
     this.postMessage(message)
   }
 
+  private emitStats(stepRate: number): void {
+    const message: SimulationStatsMessage = {
+      payload: {
+        particleCount: this.simulation.particleCount,
+        simTime: this.simulation.simTime,
+        stepRate,
+      },
+      type: 'STATS',
+    }
+
+    this.postMessage(message)
+  }
+
   private ensureInitialized(): void {
     if (!this.initialized) {
       throw new Error('Simulation worker has not been initialized yet.')
@@ -92,23 +108,29 @@ export class SimulationWorkerHost {
     this.handlePause()
     this.simulation.init(payload)
     this.initialized = true
+    this.lastStepTimestamp = null
     this.emitReady()
     this.emitPositions()
+    this.emitStats(0)
   }
 
   private handlePause(): void {
     if (this.stepTimer !== null) {
       clearInterval(this.stepTimer)
       this.stepTimer = null
+      this.lastStepTimestamp = null
       this.emitReady()
+      this.emitStats(0)
     }
   }
 
   private handleReset(): void {
     this.ensureInitialized()
     this.simulation.reset()
+    this.lastStepTimestamp = null
     this.emitReady()
     this.emitPositions()
+    this.emitStats(0)
   }
 
   private handleStart(dt?: number): void {
@@ -124,6 +146,7 @@ export class SimulationWorkerHost {
       try {
         this.simulation.step(this.frameDt)
         this.emitPositions()
+        this.emitStats(this.resolveStepRate(this.frameDt))
       } catch (error) {
         this.handlePause()
         this.postMessage(this.toErrorMessage(error))
@@ -137,6 +160,7 @@ export class SimulationWorkerHost {
     this.ensureInitialized()
     this.simulation.step(dt)
     this.emitPositions()
+    this.emitStats(this.resolveStepRate(dt))
   }
 
   private handleUpdateParams(
@@ -161,6 +185,26 @@ export class SimulationWorkerHost {
       },
       type: 'ERROR',
     }
+  }
+
+  private resolveStepRate(fallbackDt: number): number {
+    const now = this.now()
+    const previousTimestamp = this.lastStepTimestamp
+    this.lastStepTimestamp = now
+
+    if (previousTimestamp !== null) {
+      const elapsedMs = now - previousTimestamp
+
+      if (elapsedMs > 0) {
+        return 1000 / elapsedMs
+      }
+    }
+
+    return fallbackDt > 0 ? 1 / fallbackDt : 0
+  }
+
+  private now(): number {
+    return typeof performance !== 'undefined' ? performance.now() : Date.now()
   }
 }
 

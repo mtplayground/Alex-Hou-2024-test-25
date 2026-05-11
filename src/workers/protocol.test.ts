@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createPositionsMessage,
   positionsTransferList,
+  type SimulationStatsMessage,
   type SimulationWorkerRequest,
 } from '@/workers/protocol'
 
@@ -61,5 +62,22 @@ describe('worker protocol', () => {
       'PAUSE',
       'RESET',
     ])
+  })
+
+  it('defines the simulation stats payload shape', () => {
+    const stats: SimulationStatsMessage = {
+      payload: {
+        particleCount: 128,
+        simTime: 1.25,
+        stepRate: 60,
+      },
+      type: 'STATS',
+    }
+
+    expect(stats.payload).toEqual({
+      particleCount: 128,
+      simTime: 1.25,
+      stepRate: 60,
+    })
   })
 })

@@ -5,6 +5,7 @@ import type {
   SimulationErrorMessage,
   SimulationPositionsMessage,
   SimulationReadyMessage,
+  SimulationStatsMessage,
   SimulationWorkerRequest,
   SimulationWorkerResponse,
 } from '@/workers/protocol'
@@ -23,6 +24,9 @@ export type SimulationErrorListener = (message: string) => void
 export type SimulationReadyListener = (
   payload: SimulationReadyMessage['payload'],
 ) => void
+export type SimulationStatsListener = (
+  payload: SimulationStatsMessage['payload'],
+) => void
 
 function createDefaultWorker(): SimulationClientWorker {
   return new Worker(new URL('./simulationWorker.ts', import.meta.url), {
@@ -38,6 +42,8 @@ export class SimulationClient {
   private readonly positionListeners = new Set<PositionFrameListener>()
 
   private readonly readyListeners = new Set<SimulationReadyListener>()
+
+  private readonly statsListeners = new Set<SimulationStatsListener>()
 
   private readonly worker: SimulationClientWorker
 
@@ -144,12 +150,21 @@ export class SimulationClient {
     }
   }
 
+  subscribeToStats(listener: SimulationStatsListener): () => void {
+    this.statsListeners.add(listener)
+
+    return () => {
+      this.statsListeners.delete(listener)
+    }
+  }
+
   destroy(): void {
     this.worker.onmessage = null
     this.worker.onerror = null
     this.worker.terminate()
     this.positionListeners.clear()
     this.readyListeners.clear()
+    this.statsListeners.clear()
     this.errorListeners.clear()
   }
 
@@ -169,6 +184,11 @@ export class SimulationClient {
         return
       case 'ERROR':
         this.handleError(message)
+        return
+      case 'STATS':
+        this.statsListeners.forEach((listener) => {
+          listener(message.payload)
+        })
         return
     }
   }

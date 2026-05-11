@@ -48,8 +48,10 @@ describe('SimulationWorkerHost', () => {
 
     const initReady = postMessage.mock.calls[0]?.[0]
     const initPositions = postMessage.mock.calls[1]?.[0]
-    const steppedPositions = postMessage.mock.calls[2]?.[0]
-    const steppedTransfer = postMessage.mock.calls[2]?.[1]
+    const initStats = postMessage.mock.calls[2]?.[0]
+    const steppedPositions = postMessage.mock.calls[3]?.[0]
+    const steppedTransfer = postMessage.mock.calls[3]?.[1]
+    const steppedStats = postMessage.mock.calls[4]?.[0]
 
     expect(initReady).toEqual({
       payload: {
@@ -59,7 +61,16 @@ describe('SimulationWorkerHost', () => {
       type: 'READY',
     })
     expect(initPositions?.type).toBe('POSITIONS')
+    expect(initStats).toEqual({
+      payload: {
+        particleCount: 1,
+        simTime: 0,
+        stepRate: 0,
+      },
+      type: 'STATS',
+    })
     expect(steppedPositions?.type).toBe('POSITIONS')
+    expect(steppedStats?.type).toBe('STATS')
     expect(steppedTransfer).toEqual([
       (steppedPositions?.type === 'POSITIONS'
         ? steppedPositions.payload.positions.buffer
@@ -75,11 +86,21 @@ describe('SimulationWorkerHost', () => {
       [0.25, 0.7019000053405762, 0.25],
     )
 
+    expect(steppedStats).toEqual({
+      payload: {
+        particleCount: 1,
+        simTime: 0.1,
+        stepRate: 10,
+      },
+      type: 'STATS',
+    })
+
     host.handleMessage({
       type: 'RESET',
     })
 
-    const resetPositions = postMessage.mock.calls[4]?.[0]
+    const resetPositions = postMessage.mock.calls[6]?.[0]
+    const resetStats = postMessage.mock.calls[7]?.[0]
 
     if (resetPositions?.type !== 'POSITIONS') {
       throw new Error('Expected a POSITIONS response after RESET.')
@@ -89,6 +110,14 @@ describe('SimulationWorkerHost', () => {
       [...resetPositions.payload.positions],
       [0.25, 0.8, 0.25],
     )
+    expect(resetStats).toEqual({
+      payload: {
+        particleCount: 1,
+        simTime: 0,
+        stepRate: 0,
+      },
+      type: 'STATS',
+    })
   })
 
   it('starts and pauses the run loop', () => {
@@ -117,7 +146,7 @@ describe('SimulationWorkerHost', () => {
       type: 'START',
     })
 
-    const runningReady = postMessage.mock.calls[2]?.[0]
+    const runningReady = postMessage.mock.calls[3]?.[0]
 
     expect(runningReady).toEqual({
       payload: {
@@ -129,20 +158,38 @@ describe('SimulationWorkerHost', () => {
 
     vi.advanceTimersByTime(50)
 
-    const startedStep = postMessage.mock.calls[3]?.[0]
+    const startedStep = postMessage.mock.calls[4]?.[0]
+    const startedStats = postMessage.mock.calls[5]?.[0]
     expect(startedStep?.type).toBe('POSITIONS')
+    expect(startedStats).toEqual({
+      payload: {
+        particleCount: 1,
+        simTime: 0.05,
+        stepRate: 20,
+      },
+      type: 'STATS',
+    })
 
     host.handleMessage({
       type: 'PAUSE',
     })
 
-    const pausedReady = postMessage.mock.calls.at(-1)?.[0]
+    const pausedReady = postMessage.mock.calls.at(-2)?.[0]
+    const pausedStats = postMessage.mock.calls.at(-1)?.[0]
     expect(pausedReady).toEqual({
       payload: {
         initialized: true,
         running: false,
       },
       type: 'READY',
+    })
+    expect(pausedStats).toEqual({
+      payload: {
+        particleCount: 1,
+        simTime: 0.05,
+        stepRate: 0,
+      },
+      type: 'STATS',
     })
   })
 
@@ -201,7 +248,8 @@ describe('SimulationWorkerHost', () => {
     })
 
     const initPositions = postMessage.mock.calls[1]?.[0]
-    const steppedPositions = postMessage.mock.calls[2]?.[0]
+    const steppedPositions = postMessage.mock.calls[3]?.[0]
+    const steppedStats = postMessage.mock.calls[4]?.[0]
 
     if (initPositions?.type !== 'POSITIONS') {
       throw new Error('Expected a POSITIONS response after emitter INIT.')
@@ -213,5 +261,13 @@ describe('SimulationWorkerHost', () => {
 
     expect(initPositions.payload.positions).toHaveLength(0)
     expect(steppedPositions.payload.positions).toHaveLength(3)
+    expect(steppedStats).toEqual({
+      payload: {
+        particleCount: 1,
+        simTime: 0.25,
+        stepRate: 4,
+      },
+      type: 'STATS',
+    })
   })
 })
