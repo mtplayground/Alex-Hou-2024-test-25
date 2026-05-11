@@ -66,6 +66,7 @@ Key features:
 - Simulation controls: play, pause, step, reset, speed
 - Export tools: PNG frame capture and WebM recording
 - Scene editing: container size, obstacles, fluid source, presets
+- SSFR fluid rendering with debug views for depth, thickness, and normals
 - Visualization modes: color by speed, density, or pressure
 - HUD stats: render FPS, simulation step rate, particle count, sim time
 
@@ -73,6 +74,42 @@ Keyboard shortcuts:
 
 - `Space`: play / pause
 - `R`: reset simulation
+
+## SSFR Water Surface
+
+The viewport supports two render paths:
+
+- `SSFR fluid surface`: renders particles through the screen-space fluid pipeline
+- `Instanced particle spheres`: renders the legacy particle impostor view
+
+The SSFR path currently includes:
+
+- particle depth and thickness passes
+- bilateral depth smoothing
+- normal reconstruction
+- water compositing with absorption and Fresnel reflection
+- debug view switching between `final`, `depth`, `thickness`, and `normals`
+
+Fluid appearance controls in the side panel:
+
+- water color
+- absorption strength
+- thickness scale
+- Fresnel power
+- blur radius
+- blur iterations
+
+Screenshot placeholder:
+
+- Add an updated SSFR viewport screenshot here once final art capture is available.
+
+## Starter Scenes
+
+The built-in scenes are tuned for a strong first render:
+
+- `Dam break` is the default first-visit scene and opens on a camera angle that immediately shows a dense collapsing fluid wall.
+- `Fountain` caps its emitter below the hard safety maximum so the plume reads clearly without overwhelming the viewport.
+- `Drop into pool` starts with a larger suspended block and a steeper camera angle so the initial impact reads as a visible water volume instead of sparse particles.
 
 ## Safety Rails
 
@@ -98,6 +135,7 @@ The Playwright suite covers:
 - happy-path simulation controls
 - preset save/load flow
 - WebM export download flow
+- SSFR integration coverage across final/depth/thickness/normal render outputs
 
 ## Production Build
 

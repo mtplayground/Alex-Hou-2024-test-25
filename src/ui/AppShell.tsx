@@ -320,6 +320,7 @@ function ControlPanelBody({
   const toggleHelpers = useViewportStore((state) => state.toggleHelpers)
   const visualizationMode = useViewportStore((state) => state.visualizationMode)
   const reset = useViewportStore((state) => state.reset)
+  const setCameraPose = useViewportStore((state) => state.setCameraPose)
   const syncViewportContainer = useViewportStore(
     (state) => state.setContainerSize,
   )
@@ -382,6 +383,7 @@ function ControlPanelBody({
 
       const defaultPreset = getDefaultBuiltInScenePreset()
       applySceneSnapshot(defaultPreset.scene)
+      setCameraPose(defaultPreset.camera)
       window.localStorage.setItem(
         ONBOARDING_STORAGE_KEY,
         DEFAULT_BUILT_IN_SCENE_ID,
@@ -389,7 +391,7 @@ function ControlPanelBody({
     } catch {
       return
     }
-  }, [applySceneSnapshot])
+  }, [applySceneSnapshot, setCameraPose])
 
   const updateContainerDimension =
     (dimension: keyof ContainerSize) =>
@@ -586,6 +588,7 @@ function ControlPanelBody({
     }
 
     applySceneSnapshot(scenePreset.scene)
+    setCameraPose(scenePreset.camera)
     setShowOnboarding(false)
     setPresetStatus(`Loaded built-in scene "${scenePreset.name}".`)
   }

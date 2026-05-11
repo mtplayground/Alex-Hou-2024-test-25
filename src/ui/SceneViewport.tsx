@@ -45,6 +45,7 @@ export function SceneViewport({
     simTime: 0,
     stepRate: 0,
   })
+  const cameraPose = useViewportStore((state) => state.cameraPose)
   const containerSize = useViewportStore((state) => state.containerSize)
   const renderMode = useViewportStore((state) => state.renderMode)
   const ssfrAppearanceSettings = useViewportStore(
@@ -77,6 +78,7 @@ export function SceneViewport({
 
       controllerRef.current = createPlaygroundScene(containerNode, {
         containerSize: initialState.containerSize,
+        cameraPose: initialState.cameraPose,
         emitter: sceneState.emitter,
         initialFluid: sceneState.initialFluid,
         obstacles: sceneState.obstacles,
@@ -132,6 +134,10 @@ export function SceneViewport({
   useEffect(() => {
     controllerRef.current?.setContainerSize(containerSize)
   }, [containerSize])
+
+  useEffect(() => {
+    controllerRef.current?.setCameraPose(cameraPose)
+  }, [cameraPose])
 
   useEffect(() => {
     controllerRef.current?.setHelpersVisible(showHelpers)

@@ -7,6 +7,11 @@ export interface ContainerSize {
   width: number
 }
 
+export interface ViewportCameraPose {
+  position: [number, number, number]
+  target: [number, number, number]
+}
+
 export interface SsfrBlurSettings {
   iterations: number
   radius: number
@@ -30,6 +35,11 @@ const DEFAULT_CONTAINER_SIZE: ContainerSize = {
   width: 4.5,
 }
 
+const DEFAULT_CAMERA_POSE: ViewportCameraPose = {
+  position: [4.9, 2.8, 6.1],
+  target: [2.4, 1.2, 2.3],
+}
+
 const DEFAULT_SSFR_BLUR_SETTINGS: SsfrBlurSettings = {
   iterations: 2,
   radius: 4,
@@ -44,6 +54,7 @@ const DEFAULT_SSFR_APPEARANCE_SETTINGS: SsfrAppearanceSettings = {
 }
 
 interface ViewportState {
+  cameraPose: ViewportCameraPose
   containerSize: ContainerSize
   renderMode: RenderMode
   ssfrAppearanceSettings: SsfrAppearanceSettings
@@ -58,12 +69,14 @@ interface ViewportState {
   setVisualizationMode: (visualizationMode: VisualizationMode) => void
   showHelpers: boolean
   setContainerSize: (nextContainerSize: ContainerSize) => void
+  setCameraPose: (cameraPose: ViewportCameraPose) => void
   toggleHelpers: () => void
   reset: () => void
   visualizationMode: VisualizationMode
 }
 
 export const useViewportStore = create<ViewportState>((set) => ({
+  cameraPose: DEFAULT_CAMERA_POSE,
   containerSize: DEFAULT_CONTAINER_SIZE,
   renderMode: 'fluid',
   setRenderMode: (renderMode) => set({ renderMode }),
@@ -78,9 +91,11 @@ export const useViewportStore = create<ViewportState>((set) => ({
   showHelpers: appDefaults.showHelpers,
   setContainerSize: (nextContainerSize) =>
     set({ containerSize: nextContainerSize }),
+  setCameraPose: (cameraPose) => set({ cameraPose }),
   toggleHelpers: () => set((state) => ({ showHelpers: !state.showHelpers })),
   reset: () =>
     set({
+      cameraPose: DEFAULT_CAMERA_POSE,
       containerSize: DEFAULT_CONTAINER_SIZE,
       renderMode: 'fluid',
       ssfrAppearanceSettings: DEFAULT_SSFR_APPEARANCE_SETTINGS,
