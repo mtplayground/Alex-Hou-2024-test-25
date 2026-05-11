@@ -616,6 +616,7 @@ function ControlPanelBody({
                   <span>{webmCaptureFramerate} fps</span>
                 </div>
                 <Slider
+                  data-testid="webm-framerate-slider"
                   max={60}
                   min={12}
                   onValueChange={(value) =>
