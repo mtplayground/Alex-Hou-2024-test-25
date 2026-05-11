@@ -64,3 +64,5 @@ npm run test:e2e
 - `e2e`: Playwright smoke tests
 
 Issue #9 adds shared ambient/directional lighting and a baseline particle material, exercised by an instanced-sphere preview inside the container scene.
+
+Issue #10 adds pure SPH smoothing-kernel functions for poly6, spiky gradient, and viscosity laplacian, with fixed-value unit coverage.
