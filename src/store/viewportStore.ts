@@ -21,6 +21,7 @@ export interface SsfrAppearanceSettings {
 }
 
 export type RenderMode = 'fluid' | 'particles'
+export type SsfrDebugView = 'depth' | 'final' | 'normals' | 'thickness'
 export type VisualizationMode = 'density' | 'pressure' | 'speed'
 
 const DEFAULT_CONTAINER_SIZE: ContainerSize = {
@@ -47,11 +48,13 @@ interface ViewportState {
   renderMode: RenderMode
   ssfrAppearanceSettings: SsfrAppearanceSettings
   ssfrBlurSettings: SsfrBlurSettings
+  ssfrDebugView: SsfrDebugView
   setRenderMode: (renderMode: RenderMode) => void
   setSsfrAppearanceSettings: (
     ssfrAppearanceSettings: SsfrAppearanceSettings,
   ) => void
   setSsfrBlurSettings: (ssfrBlurSettings: SsfrBlurSettings) => void
+  setSsfrDebugView: (ssfrDebugView: SsfrDebugView) => void
   setVisualizationMode: (visualizationMode: VisualizationMode) => void
   showHelpers: boolean
   setContainerSize: (nextContainerSize: ContainerSize) => void
@@ -69,6 +72,8 @@ export const useViewportStore = create<ViewportState>((set) => ({
     set({ ssfrAppearanceSettings }),
   ssfrBlurSettings: DEFAULT_SSFR_BLUR_SETTINGS,
   setSsfrBlurSettings: (ssfrBlurSettings) => set({ ssfrBlurSettings }),
+  ssfrDebugView: 'final',
+  setSsfrDebugView: (ssfrDebugView) => set({ ssfrDebugView }),
   setVisualizationMode: (visualizationMode) => set({ visualizationMode }),
   showHelpers: appDefaults.showHelpers,
   setContainerSize: (nextContainerSize) =>
@@ -80,6 +85,7 @@ export const useViewportStore = create<ViewportState>((set) => ({
       renderMode: 'fluid',
       ssfrAppearanceSettings: DEFAULT_SSFR_APPEARANCE_SETTINGS,
       ssfrBlurSettings: DEFAULT_SSFR_BLUR_SETTINGS,
+      ssfrDebugView: 'final',
       showHelpers: appDefaults.showHelpers,
       visualizationMode: 'speed',
     }),

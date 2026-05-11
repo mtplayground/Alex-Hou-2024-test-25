@@ -2,6 +2,7 @@ import type { ContainerSize } from '@/store/viewportStore'
 import type { RenderMode } from '@/store/viewportStore'
 import type { SsfrAppearanceSettings } from '@/store/viewportStore'
 import type { SsfrBlurSettings } from '@/store/viewportStore'
+import type { SsfrDebugView } from '@/store/viewportStore'
 import type { VisualizationMode } from '@/store/viewportStore'
 import JSZip from 'jszip'
 import * as THREE from 'three'
@@ -43,6 +44,7 @@ interface PlaygroundSceneState {
   renderMode: RenderMode
   ssfrAppearanceSettings: SsfrAppearanceSettings
   ssfrBlurSettings: SsfrBlurSettings
+  ssfrDebugView: SsfrDebugView
   simParams: SimParams
   simulationSpeed: number
   showHelpers: boolean
@@ -83,6 +85,7 @@ export interface PlaygroundSceneController {
   setSimulationParams: (simParams: SimParams) => void
   setSimulationSpeed: (simulationSpeed: number) => void
   setSsfrBlurSettings: (ssfrBlurSettings: SsfrBlurSettings) => void
+  setSsfrDebugView: (ssfrDebugView: SsfrDebugView) => void
   setVisualizationMode: (visualizationMode: VisualizationMode) => void
   startPngCapture: () => void
   startWebmCapture: (framerate: number) => void
@@ -293,6 +296,7 @@ export function createPlaygroundScene(
   let activeSsfrAppearanceSettings = initialState.ssfrAppearanceSettings
   let activeSimParams = initialState.simParams
   let activeSsfrBlurSettings = initialState.ssfrBlurSettings
+  let activeSsfrDebugView = initialState.ssfrDebugView
   let simulationRunning = false
   let simulationSpeed = initialState.simulationSpeed
   let activeVisualizationMode = initialState.visualizationMode
@@ -326,6 +330,7 @@ export function createPlaygroundScene(
   let ssfrRenderer: SSFRRenderer = createSSFRRenderer({
     appearanceSettings: activeSsfrAppearanceSettings,
     blurSettings: activeSsfrBlurSettings,
+    debugView: activeSsfrDebugView,
     height: Math.max(container.clientHeight, 1),
     maxParticles: particlePreview.instanceMatrix.count,
     particleRadius,
@@ -368,6 +373,7 @@ export function createPlaygroundScene(
     ssfrRenderer = createSSFRRenderer({
       appearanceSettings: activeSsfrAppearanceSettings,
       blurSettings: activeSsfrBlurSettings,
+      debugView: activeSsfrDebugView,
       height: Math.max(container.clientHeight, 1),
       maxParticles: particlePreview.instanceMatrix.count,
       particleRadius,
@@ -854,6 +860,10 @@ export function createPlaygroundScene(
     setSsfrBlurSettings: (ssfrBlurSettings) => {
       activeSsfrBlurSettings = ssfrBlurSettings
       ssfrRenderer.setBlurSettings(ssfrBlurSettings)
+    },
+    setSsfrDebugView: (ssfrDebugView) => {
+      activeSsfrDebugView = ssfrDebugView
+      ssfrRenderer.setDebugView(ssfrDebugView)
     },
     setSimulationSpeed: (nextSimulationSpeed) => {
       simulationSpeed = nextSimulationSpeed

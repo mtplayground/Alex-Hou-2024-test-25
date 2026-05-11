@@ -51,6 +51,7 @@ export function SceneViewport({
     (state) => state.ssfrAppearanceSettings,
   )
   const ssfrBlurSettings = useViewportStore((state) => state.ssfrBlurSettings)
+  const ssfrDebugView = useViewportStore((state) => state.ssfrDebugView)
   const showHelpers = useViewportStore((state) => state.showHelpers)
   const visualizationMode = useViewportStore((state) => state.visualizationMode)
   const scene = useSceneStore((state) => state.scene)
@@ -89,6 +90,7 @@ export function SceneViewport({
         renderMode: initialState.renderMode,
         ssfrAppearanceSettings: initialState.ssfrAppearanceSettings,
         ssfrBlurSettings: initialState.ssfrBlurSettings,
+        ssfrDebugView: initialState.ssfrDebugView,
         simParams: sceneState.simParams,
         simulationSpeed,
         showHelpers: initialState.showHelpers,
@@ -162,6 +164,10 @@ export function SceneViewport({
   useEffect(() => {
     controllerRef.current?.setSsfrBlurSettings(ssfrBlurSettings)
   }, [ssfrBlurSettings])
+
+  useEffect(() => {
+    controllerRef.current?.setSsfrDebugView(ssfrDebugView)
+  }, [ssfrDebugView])
 
   useEffect(() => {
     controllerRef.current?.setSimulationSpeed(simulationSpeed)

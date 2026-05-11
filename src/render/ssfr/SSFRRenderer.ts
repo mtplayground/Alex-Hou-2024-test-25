@@ -3,6 +3,7 @@ import type {
   ContainerSize,
   SsfrAppearanceSettings,
   SsfrBlurSettings,
+  SsfrDebugView,
 } from '@/store/viewportStore'
 import type { SimulationFrame } from '@/workers/SimulationClient'
 import {
@@ -36,8 +37,8 @@ uniform vec2 uProjectionScale;
 uniform sampler2D uSceneColorTexture;
 uniform sampler2D uSceneDepthTexture;
 uniform float uAbsorptionStrength;
+uniform float uDebugViewMode;
 uniform float uFresnelPower;
-uniform float uShowThicknessDebug;
 uniform float uThicknessScale;
 uniform vec2 uTexelSize;
 uniform vec3 uWaterColor;
@@ -124,9 +125,21 @@ void main() {
     vec3(2.4, 1.3, 0.45) * max(uAbsorptionStrength, 0.0);
   vec3 transmittance = exp(-scaledThickness * absorptionCoefficient);
 
-  if (uShowThicknessDebug > 0.5) {
+  if (uDebugViewMode > 0.5 && uDebugViewMode < 1.5) {
+    float normalizedDepth =
+      1.0 - smoothstep(uCameraNear, uCameraFar * 0.75, fluidDepth);
+    gl_FragColor = vec4(vec3(normalizedDepth), 1.0);
+    return;
+  }
+
+  if (uDebugViewMode > 1.5 && uDebugViewMode < 2.5) {
     float debugThickness = clamp(scaledThickness * 0.35, 0.0, 1.0);
     gl_FragColor = vec4(mix(vec3(0.02), uWaterColor, debugThickness), 1.0);
+    return;
+  }
+
+  if (uDebugViewMode > 2.5 && uDebugViewMode < 3.5) {
+    gl_FragColor = vec4(normal * 0.5 + 0.5, 1.0);
     return;
   }
 
@@ -152,6 +165,7 @@ void main() {
 interface SSFRRendererOptions {
   appearanceSettings: SsfrAppearanceSettings
   blurSettings: SsfrBlurSettings
+  debugView: SsfrDebugView
   height: number
   maxParticles: number
   particleRadius: number
@@ -221,8 +235,8 @@ function getNumericUniform(
     | 'uAbsorptionStrength'
     | 'uCameraNear'
     | 'uCameraFar'
+    | 'uDebugViewMode'
     | 'uFresnelPower'
-    | 'uShowThicknessDebug'
     | 'uThicknessScale',
 ): { value: number } {
   const uniform = material.uniforms[uniformName]
@@ -254,6 +268,7 @@ function createSceneRenderTarget(
 function createCompositeMaterial(
   camera: THREE.PerspectiveCamera,
   appearanceSettings: SsfrAppearanceSettings,
+  debugView: SsfrDebugView,
 ): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     depthTest: false,
@@ -264,6 +279,7 @@ function createCompositeMaterial(
       uAbsorptionStrength: { value: appearanceSettings.absorptionStrength },
       uCameraFar: { value: camera.far },
       uCameraNear: { value: camera.near },
+      uDebugViewMode: { value: debugViewToUniformValue(debugView) },
       uFresnelPower: { value: appearanceSettings.fresnelPower },
       uFluidDepthTexture: { value: null },
       uFluidThicknessTexture: { value: null },
@@ -275,9 +291,6 @@ function createCompositeMaterial(
       },
       uSceneColorTexture: { value: null },
       uSceneDepthTexture: { value: null },
-      uShowThicknessDebug: {
-        value: appearanceSettings.showThicknessDebug ? 1 : 0,
-      },
       uTexelSize: { value: new THREE.Vector2(1, 1) },
       uThicknessScale: { value: appearanceSettings.thicknessScale },
       uWaterColor: { value: new THREE.Color(appearanceSettings.waterColor) },
@@ -296,12 +309,28 @@ export interface SSFRRenderer {
   ) => void
   setAppearanceSettings: (appearanceSettings: SsfrAppearanceSettings) => void
   setBlurSettings: (blurSettings: SsfrBlurSettings) => void
+  setDebugView: (debugView: SsfrDebugView) => void
   updateFrame: (frame: SimulationFrame, containerSize: ContainerSize) => void
+}
+
+function debugViewToUniformValue(debugView: SsfrDebugView): number {
+  switch (debugView) {
+    case 'depth':
+      return 1
+    case 'thickness':
+      return 2
+    case 'normals':
+      return 3
+    case 'final':
+    default:
+      return 0
+  }
 }
 
 export function createSSFRRenderer({
   appearanceSettings,
   blurSettings,
+  debugView,
   height,
   maxParticles,
   particleRadius,
@@ -329,6 +358,7 @@ export function createSSFRRenderer({
   const compositeMaterial = createCompositeMaterial(
     new THREE.PerspectiveCamera(45, 1, 0.1, 100),
     appearanceSettings,
+    debugView,
   )
   const compositeQuad = new THREE.Mesh(
     new THREE.PlaneGeometry(2, 2),
@@ -413,11 +443,13 @@ export function createSSFRRenderer({
         nextAppearanceSettings.fresnelPower
       getNumericUniform(compositeMaterial, 'uThicknessScale').value =
         nextAppearanceSettings.thicknessScale
-      getNumericUniform(compositeMaterial, 'uShowThicknessDebug').value =
-        nextAppearanceSettings.showThicknessDebug ? 1 : 0
     },
     setBlurSettings: (nextBlurSettings) => {
       blurPass.setBlurSettings(nextBlurSettings)
+    },
+    setDebugView: (nextDebugView) => {
+      getNumericUniform(compositeMaterial, 'uDebugViewMode').value =
+        debugViewToUniformValue(nextDebugView)
     },
     updateFrame: (frame, containerSize) => {
       depthPass.updateFrame(frame, containerSize)
