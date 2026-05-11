@@ -74,3 +74,5 @@ Issue #12 adds a structure-of-arrays particle buffer built on `Float32Array` plu
 Issue #13 adds the first density-and-pressure computation pass, using poly6 kernel sums over hashed neighbors and writing equation-of-state pressures back into the shared particle buffers.
 
 Issue #14 adds the force-accumulation pass, combining pressure-gradient, viscosity, and gravity contributions into each particle's typed-array force vector.
+
+Issue #15 adds semi-implicit Euler integration plus damped collisions against the axis-aligned simulation container and local obstacle boxes.
