@@ -60,8 +60,8 @@ export function HelloCubeCanvas() {
       <CardHeader className="border-b border-white/10">
         <CardTitle className="text-white">Hello-Cube smoke test</CardTitle>
         <CardDescription>
-          A minimal Three.js scene renders a rotating cube and origin axes to
-          validate the render pipeline.
+          A minimal Three.js scene renders a rotating cube and origin axes with
+          OrbitControls, resize handling, and a dedicated animation loop.
         </CardDescription>
       </CardHeader>
       <CardContent className="p-0">

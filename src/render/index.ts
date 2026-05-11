@@ -2,5 +2,5 @@ export const renderModuleSummary = {
   path: 'src/render',
   title: 'Rendering layer',
   description:
-    'Three.js setup now boots a rotating cube smoke scene here, and later issues can expand it into the full fluid renderer.',
+    'Three.js setup now includes a reusable viewport with renderer, scene, camera, OrbitControls, and a cube smoke scene on top.',
 }

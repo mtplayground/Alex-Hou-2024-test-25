@@ -44,10 +44,10 @@ export function AppShell() {
               Three.js is integrated with a live Hello-Cube smoke scene.
             </h1>
             <p className="max-w-2xl text-base leading-7 text-slate-300">
-              This pass introduces the first runtime renderer boundary. A
-              rotating cube and axes helper now validate the Three.js pipeline,
-              while Zustand owns the demo controls that later issues can expand
-              into scene and simulation state.
+              This pass formalizes the viewport layer. The smoke scene now runs
+              on a dedicated renderer + scene + perspective camera setup with
+              OrbitControls, requestAnimationFrame rendering, and container
+              resize handling.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Button className="gap-2" onClick={reset}>
@@ -92,8 +92,8 @@ export function AppShell() {
                 </div>
                 <p className="mt-2 leading-6 text-slate-300">
                   A lit cube rotates in place with an axes helper anchored at
-                  the origin. This is a smoke path only, not the final renderer
-                  architecture.
+                  the origin. Drag to orbit the camera and use the mouse wheel
+                  to zoom while the scene continues to animate.
                 </p>
                 <div className="mt-3 grid gap-1 text-xs uppercase tracking-[0.16em] text-slate-400">
                   <span>
