@@ -7,6 +7,14 @@ export const storeModuleSummary = {
 
 export { useSceneStore, type SceneStoreState } from './sceneStore'
 export {
+  BUILT_IN_SCENES,
+  DEFAULT_BUILT_IN_SCENE_ID,
+  getBuiltInSceneById,
+  getDefaultBuiltInScene,
+  getDefaultBuiltInScenePreset,
+  type BuiltInScenePreset,
+} from './builtInScenes'
+export {
   assertValidScene,
   cloneScene,
   deserializeScene,

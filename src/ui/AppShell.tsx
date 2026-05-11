@@ -23,7 +23,11 @@ import { appDefaults } from '@/config/env'
 import { renderModuleSummary } from '@/render'
 import { simulationModuleSummary } from '@/sim'
 import {
+  BUILT_IN_SCENES,
+  DEFAULT_BUILT_IN_SCENE_ID,
   deserializeScene,
+  getBuiltInSceneById,
+  getDefaultBuiltInScenePreset,
   LocalStorageScenePresetManager,
   serializeScene,
   storeModuleSummary,
@@ -62,6 +66,8 @@ const SIM_PARAMETER_LIMITS = {
   restDensity: { max: 2000, min: 300, step: 10 },
   viscosity: { max: 2, min: 0, step: 0.01 },
 } as const
+
+const ONBOARDING_STORAGE_KEY = 'fluid-playground.onboarding-scene-v1'
 
 function MetricPill({ label, value }: { label: string; value: string }) {
   return (
@@ -287,17 +293,48 @@ function ControlPanelBody({
   })
   const particleCountValue = scene.emitter?.particleCap ?? particleCountDraft
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false
+    }
 
-  const syncPresets = () => {
+    try {
+      return window.localStorage.getItem(ONBOARDING_STORAGE_KEY) === null
+    } catch {
+      return true
+    }
+  })
+
+  const syncPresets = useCallback(() => {
     const nextPresets = presetManager.listPresets()
     setPresets(nextPresets)
     return nextPresets
-  }
+  }, [presetManager])
 
-  const applySceneSnapshot = (nextScene: typeof scene) => {
-    replaceScene(nextScene)
-    syncViewportContainer(nextScene.container)
-  }
+  const applySceneSnapshot = useCallback(
+    (nextScene: typeof scene) => {
+      replaceScene(nextScene)
+      syncViewportContainer(nextScene.container)
+    },
+    [replaceScene, syncViewportContainer],
+  )
+
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(ONBOARDING_STORAGE_KEY) !== null) {
+        return
+      }
+
+      const defaultPreset = getDefaultBuiltInScenePreset()
+      applySceneSnapshot(defaultPreset.scene)
+      window.localStorage.setItem(
+        ONBOARDING_STORAGE_KEY,
+        DEFAULT_BUILT_IN_SCENE_ID,
+      )
+    } catch {
+      return
+    }
+  }, [applySceneSnapshot])
 
   const updateContainerDimension =
     (dimension: keyof ContainerSize) =>
@@ -483,6 +520,19 @@ function ControlPanelBody({
     } finally {
       event.target.value = ''
     }
+  }
+
+  const handleLoadBuiltInScene = (sceneId: string) => {
+    const scenePreset = getBuiltInSceneById(sceneId)
+
+    if (scenePreset === undefined) {
+      setPresetStatus('Built-in scene was not found.')
+      return
+    }
+
+    applySceneSnapshot(scenePreset.scene)
+    setShowOnboarding(false)
+    setPresetStatus(`Loaded built-in scene "${scenePreset.name}".`)
   }
 
   return (
@@ -970,6 +1020,62 @@ function ControlPanelBody({
               frame, so mode switches update immediately without restarting the
               simulation.
             </p>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="mb-4 flex items-center gap-2 text-sm font-medium text-white">
+              <Sparkles className="size-4 text-sky-300" />
+              Built-in scenes
+            </div>
+            {showOnboarding ? (
+              <div className="mb-4 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm leading-6 text-emerald-100">
+                <div className="flex items-center justify-between gap-3">
+                  <p>
+                    Starter scenes are bundled into the workspace.{' '}
+                    <span className="font-semibold text-white">
+                      {getDefaultBuiltInScenePreset().name}
+                    </span>{' '}
+                    loads automatically for first-time visitors so the viewport
+                    never opens empty.
+                  </p>
+                  <Button
+                    onClick={() => setShowOnboarding(false)}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+            <div className="space-y-3">
+              {BUILT_IN_SCENES.map((scenePreset) => (
+                <div
+                  className="rounded-xl border border-white/10 bg-slate-950/40 p-4"
+                  data-testid={`builtin-scene-${scenePreset.id}`}
+                  key={scenePreset.id}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-slate-100">
+                        {scenePreset.name}
+                      </div>
+                      <div className="mt-1 text-sm leading-6 text-slate-400">
+                        {scenePreset.description}
+                      </div>
+                    </div>
+                    <Button
+                      data-testid={`builtin-scene-load-${scenePreset.id}`}
+                      onClick={() => handleLoadBuiltInScene(scenePreset.id)}
+                      size="sm"
+                      variant="secondary"
+                    >
+                      Load
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">

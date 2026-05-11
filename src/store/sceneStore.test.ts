@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { appDefaults } from '@/config/env'
+import { getDefaultBuiltInScene } from '@/store'
 import { useSceneStore } from '@/store/sceneStore'
 
 afterEach(() => {
@@ -8,6 +9,7 @@ afterEach(() => {
 
 describe('useSceneStore', () => {
   it('updates scene container, sim params, and obstacle mutations', () => {
+    const defaultScene = getDefaultBuiltInScene()
     const store = useSceneStore.getState()
 
     store.setContainer({
@@ -39,11 +41,7 @@ describe('useSceneStore', () => {
     expect(nextState.simParams.gravity).toEqual([0, -12, 0])
     expect(nextState.simParams.viscosity).toBe(0.2)
     expect(nextState.obstacles).toEqual([
-      {
-        center: [2.25, 0.9, 2.25],
-        id: 'obstacle-default',
-        size: [0.8, 0.6, 0.8],
-      },
+      ...defaultScene.obstacles,
       {
         center: [1.5, 1, 1],
         id: 'obstacle-1',
@@ -93,6 +91,8 @@ describe('useSceneStore', () => {
   })
 
   it('replaces and resets the entire scene snapshot', () => {
+    const defaultScene = getDefaultBuiltInScene()
+
     useSceneStore.getState().replaceScene({
       container: {
         depth: 7,
@@ -129,18 +129,6 @@ describe('useSceneStore', () => {
 
     const resetScene = useSceneStore.getState().scene
 
-    expect(resetScene.container).toEqual({
-      depth: 4.5,
-      height: 3,
-      width: 4.5,
-    })
-    expect(resetScene.obstacles).toEqual([
-      {
-        center: [2.25, 0.9, 2.25],
-        id: 'obstacle-default',
-        size: [0.8, 0.6, 0.8],
-      },
-    ])
-    expect('initialFluid' in resetScene).toBe(true)
+    expect(resetScene).toEqual(defaultScene)
   })
 })

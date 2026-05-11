@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { defaultSimParams, type SimParams } from '@/sim/particles'
+import type { SimParams } from '@/sim/particles'
 import type {
   InitialFluidBlock,
   Scene,
@@ -7,32 +7,7 @@ import type {
   SceneEmitter,
   SceneObstacle,
 } from '@/types/scene'
-
-const DEFAULT_CONTAINER: SceneContainer = {
-  depth: defaultSimParams.containerSize[2],
-  height: defaultSimParams.containerSize[1],
-  width: defaultSimParams.containerSize[0],
-}
-
-const DEFAULT_INITIAL_FLUID: InitialFluidBlock = {
-  origin: [1.25, 1.1, 1.25],
-  size: [1, 0.8, 1],
-}
-
-const DEFAULT_OBSTACLES: SceneObstacle[] = [
-  {
-    center: [2.25, 0.9, 2.25],
-    id: 'obstacle-default',
-    size: [0.8, 0.6, 0.8],
-  },
-]
-
-const DEFAULT_SCENE: Scene = {
-  container: DEFAULT_CONTAINER,
-  initialFluid: DEFAULT_INITIAL_FLUID,
-  obstacles: DEFAULT_OBSTACLES,
-  simParams: defaultSimParams,
-}
+import { getDefaultBuiltInScene } from './builtInScenes'
 
 function cloneVec3(vector: readonly number[]): [number, number, number] {
   return [vector[0] ?? 0, vector[1] ?? 0, vector[2] ?? 0]
@@ -95,6 +70,10 @@ function cloneScene(scene: Scene): Scene {
   }
 }
 
+function nextDefaultScene(): Scene {
+  return cloneScene(getDefaultBuiltInScene())
+}
+
 export interface SceneStoreState {
   addObstacle: (obstacle: SceneObstacle) => void
   removeObstacle: (id: string) => void
@@ -131,9 +110,9 @@ export const useSceneStore = create<SceneStoreState>((set) => ({
     }),
   resetScene: () =>
     set({
-      scene: cloneScene(DEFAULT_SCENE),
+      scene: nextDefaultScene(),
     }),
-  scene: cloneScene(DEFAULT_SCENE),
+  scene: nextDefaultScene(),
   setContainer: (container) =>
     set((state) => ({
       scene: {
