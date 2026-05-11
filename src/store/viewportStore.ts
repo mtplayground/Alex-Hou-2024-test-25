@@ -15,31 +15,26 @@ const DEFAULT_CONTAINER_SIZE: ContainerSize = {
   width: 4.5,
 }
 
-interface HelloCubeState {
+interface ViewportState {
   containerSize: ContainerSize
-  rotationSpeed: number
   setVisualizationMode: (visualizationMode: VisualizationMode) => void
   showHelpers: boolean
   setContainerSize: (nextContainerSize: ContainerSize) => void
-  setRotationSpeed: (rotationSpeed: number) => void
   toggleHelpers: () => void
   reset: () => void
   visualizationMode: VisualizationMode
 }
 
-export const useHelloCubeStore = create<HelloCubeState>((set) => ({
+export const useViewportStore = create<ViewportState>((set) => ({
   containerSize: DEFAULT_CONTAINER_SIZE,
-  rotationSpeed: appDefaults.rotationSpeed,
   setVisualizationMode: (visualizationMode) => set({ visualizationMode }),
   showHelpers: appDefaults.showHelpers,
   setContainerSize: (nextContainerSize) =>
     set({ containerSize: nextContainerSize }),
-  setRotationSpeed: (rotationSpeed) => set({ rotationSpeed }),
   toggleHelpers: () => set((state) => ({ showHelpers: !state.showHelpers })),
   reset: () =>
     set({
       containerSize: DEFAULT_CONTAINER_SIZE,
-      rotationSpeed: appDefaults.rotationSpeed,
       showHelpers: appDefaults.showHelpers,
       visualizationMode: 'speed',
     }),

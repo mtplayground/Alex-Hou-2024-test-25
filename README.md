@@ -27,7 +27,6 @@ The app reads frontend-only defaults from Vite environment variables:
 
 - `VITE_DEFAULT_PARTICLE_COUNT`
 - `VITE_DEFAULT_EMITTER_RATE`
-- `VITE_DEFAULT_ROTATION_SPEED`
 - `VITE_DEFAULT_SHOW_HELPERS`
 
 ## Development

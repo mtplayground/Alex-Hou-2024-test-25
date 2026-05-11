@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { ContainerSize, VisualizationMode } from '@/store/helloCubeStore'
+import type { ContainerSize, VisualizationMode } from '@/store/viewportStore'
 import type { SimulationFrame } from '@/workers/SimulationClient'
 
 export function createParticleInstances(

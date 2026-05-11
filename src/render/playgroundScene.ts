@@ -1,5 +1,5 @@
-import type { ContainerSize } from '@/store/helloCubeStore'
-import type { VisualizationMode } from '@/store/helloCubeStore'
+import type { ContainerSize } from '@/store/viewportStore'
+import type { VisualizationMode } from '@/store/viewportStore'
 import JSZip from 'jszip'
 import * as THREE from 'three'
 import {
@@ -11,7 +11,7 @@ import {
   type SimulationEmitter,
 } from '@/sim'
 import { createSceneLighting } from '@/render/lighting'
-import { createCubeMaterial, createParticleMaterial } from '@/render/materials'
+import { createParticleMaterial } from '@/render/materials'
 import { createObstacleGroup, disposeObstacleGroup } from '@/render/obstacles'
 import {
   createParticleInstances,
@@ -26,7 +26,7 @@ import type {
 import { SimulationClient } from '@/workers'
 import type { SimulationFrame } from '@/workers/SimulationClient'
 
-interface HelloCubeState {
+interface PlaygroundSceneState {
   containerSize: ContainerSize
   emitter: SceneEmitter | undefined
   initialFluid: InitialFluidBlock | undefined
@@ -34,16 +34,15 @@ interface HelloCubeState {
   onPngCaptureChange?: (state: PngCaptureState) => void
   onSimulationError?: (message: string) => void
   onSimulationReadyChange: ((running: boolean) => void) | undefined
-  onStatsChange?: (stats: HelloCubeStats) => void
+  onStatsChange?: (stats: PlaygroundSceneStats) => void
   onWebmCaptureChange?: (state: WebmCaptureState) => void
-  rotationSpeed: number
   simParams: SimParams
   simulationSpeed: number
   showHelpers: boolean
   visualizationMode: VisualizationMode
 }
 
-export interface HelloCubeStats {
+export interface PlaygroundSceneStats {
   particleCount: number
   renderFps: number
   simTime: number
@@ -60,7 +59,7 @@ export interface WebmCaptureState {
   framerate: number
 }
 
-export interface HelloCubeController {
+export interface PlaygroundSceneController {
   dispose: () => void
   pauseSimulation: () => void
   playSimulation: () => void
@@ -70,7 +69,6 @@ export interface HelloCubeController {
   setHelpersVisible: (showHelpers: boolean) => void
   setInitialFluid: (initialFluid: InitialFluidBlock | undefined) => void
   setObstacles: (obstacles: SceneObstacle[]) => void
-  setRotationSpeed: (rotationSpeed: number) => void
   setSimulationParams: (simParams: SimParams) => void
   setSimulationSpeed: (simulationSpeed: number) => void
   setVisualizationMode: (visualizationMode: VisualizationMode) => void
@@ -254,10 +252,10 @@ function getSupportedWebmMimeType(): string | null {
   return null
 }
 
-export function createHelloCube(
+export function createPlaygroundScene(
   container: HTMLElement,
-  initialState: HelloCubeState,
-): HelloCubeController {
+  initialState: PlaygroundSceneState,
+): PlaygroundSceneController {
   const viewport = createThreeViewport({
     cameraPosition: [2.8, 2.4, 3.6],
     container,
@@ -269,16 +267,6 @@ export function createHelloCube(
   controls.enablePan = false
 
   const lighting = createSceneLighting(scene)
-
-  const cubeMaterial = createCubeMaterial()
-  const cube = new THREE.Mesh(
-    new THREE.BoxGeometry(1.2, 1.2, 1.2),
-    cubeMaterial,
-  )
-  cube.position.y = 0.85
-  cube.rotation.x = 0.55
-  cube.rotation.y = 0.35
-  scene.add(cube)
 
   let containerWireframe = createContainerWireframe(initialState.containerSize)
   scene.add(containerWireframe)
@@ -298,7 +286,7 @@ export function createHelloCube(
     activeInitialFluid,
     activeSimParams,
   )
-  let latestStats: HelloCubeStats = {
+  let latestStats: PlaygroundSceneStats = {
     particleCount: simulationSeed.positions.length,
     renderFps: 0,
     simTime: 0,
@@ -602,12 +590,9 @@ export function createHelloCube(
   gridHelper.visible = initialState.showHelpers
   scene.add(axesHelper, gridHelper)
 
-  let rotationSpeed = initialState.rotationSpeed
   publishCaptureState()
   publishWebmCaptureState()
   viewport.start((deltaSeconds) => {
-    cube.rotation.y += rotationSpeed
-    cube.rotation.x += rotationSpeed * 0.5
     if (deltaSeconds > 0) {
       const frameFps = 1 / deltaSeconds
       latestStats = {
@@ -626,7 +611,6 @@ export function createHelloCube(
       void stopCaptureSession()
       void stopWebmCaptureSession()
       scene.remove(
-        cube,
         containerWireframe,
         particlePreview,
         obstacleGroup,
@@ -639,13 +623,11 @@ export function createHelloCube(
       unsubscribeStats()
       simulationClient.destroy()
       lighting.dispose()
-      cube.geometry.dispose()
       axesHelper.geometry.dispose()
       containerWireframe.geometry.dispose()
       gridHelper.geometry.dispose()
       particlePreview.geometry.dispose()
       disposeObstacleGroup(obstacleGroup)
-      disposeMaterial(cube.material)
       disposeMaterial(containerWireframe.material)
       disposeMaterial(gridHelper.material)
       disposeMaterial(particleMaterial)
@@ -800,9 +782,6 @@ export function createHelloCube(
           size: obstacle.size,
         })),
       )
-    },
-    setRotationSpeed: (nextRotationSpeed) => {
-      rotationSpeed = nextRotationSpeed
     },
     setSimulationParams: (nextSimParams) => {
       activeSimParams = sanitizeSimParams(nextSimParams)
