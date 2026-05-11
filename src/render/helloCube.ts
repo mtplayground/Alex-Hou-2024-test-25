@@ -1,6 +1,10 @@
 import type { ContainerSize } from '@/store/helloCubeStore'
 import * as THREE from 'three'
-import { buildInitialFluidBlockPositions, type SimParams } from '@/sim'
+import {
+  buildInitialFluidBlockPositions,
+  type SimParams,
+  type SimulationEmitter,
+} from '@/sim'
 import { createSceneLighting } from '@/render/lighting'
 import { createCubeMaterial, createParticleMaterial } from '@/render/materials'
 import { createObstacleGroup, disposeObstacleGroup } from '@/render/obstacles'
@@ -9,11 +13,16 @@ import {
   updateParticleInstances,
 } from '@/render/particles'
 import { createThreeViewport } from '@/render/threeViewport'
-import type { InitialFluidBlock, SceneObstacle } from '@/types/scene'
+import type {
+  InitialFluidBlock,
+  SceneEmitter,
+  SceneObstacle,
+} from '@/types/scene'
 import { SimulationClient } from '@/workers'
 
 interface HelloCubeState {
   containerSize: ContainerSize
+  emitter: SceneEmitter | undefined
   initialFluid: InitialFluidBlock | undefined
   obstacles: SceneObstacle[]
   onSimulationError?: (message: string) => void
@@ -25,10 +34,16 @@ interface HelloCubeState {
 export interface HelloCubeController {
   dispose: () => void
   setContainerSize: (containerSize: ContainerSize) => void
+  setEmitter: (emitter: SceneEmitter | undefined) => void
   setHelpersVisible: (showHelpers: boolean) => void
   setInitialFluid: (initialFluid: InitialFluidBlock | undefined) => void
   setObstacles: (obstacles: SceneObstacle[]) => void
   setRotationSpeed: (rotationSpeed: number) => void
+}
+
+interface SimulationSeed {
+  emitter: SimulationEmitter | undefined
+  positions: [number, number, number][]
 }
 
 function disposeMaterial(material: THREE.Material | THREE.Material[]) {
@@ -67,10 +82,12 @@ function initializeSimulationClient(
   client: SimulationClient,
   containerSize: ContainerSize,
   obstacles: readonly SceneObstacle[],
+  emitter: SimulationEmitter | undefined,
   simParams: SimParams,
   positions: readonly [number, number, number][],
 ): void {
   client.init({
+    ...(emitter === undefined ? {} : { emitter }),
     obstacles: obstacles.map((obstacle) => ({
       center: obstacle.center,
       size: obstacle.size,
@@ -88,23 +105,58 @@ function initializeSimulationClient(
   client.start(1 / 60)
 }
 
-function buildSeedPositions(
-  containerSize: ContainerSize,
-  initialFluid: InitialFluidBlock | undefined,
-  simParams: SimParams,
-): [number, number, number][] {
-  if (initialFluid === undefined) {
-    return []
+function normalizeEmitterVelocity(
+  emitter: SceneEmitter,
+): [number, number, number] {
+  const magnitude = Math.hypot(
+    emitter.direction[0],
+    emitter.direction[1],
+    emitter.direction[2],
+  )
+
+  if (magnitude === 0 || emitter.speed === 0) {
+    return [0, 0, 0]
   }
 
-  return buildInitialFluidBlockPositions(initialFluid, {
-    ...simParams,
-    containerSize: [
-      containerSize.width,
-      containerSize.height,
-      containerSize.depth,
-    ],
-  })
+  return [
+    (emitter.direction[0] / magnitude) * emitter.speed,
+    (emitter.direction[1] / magnitude) * emitter.speed,
+    (emitter.direction[2] / magnitude) * emitter.speed,
+  ]
+}
+
+function buildSimulationSeed(
+  containerSize: ContainerSize,
+  emitter: SceneEmitter | undefined,
+  initialFluid: InitialFluidBlock | undefined,
+  simParams: SimParams,
+): SimulationSeed {
+  if (emitter !== undefined) {
+    return {
+      emitter: {
+        cap: emitter.particleCap,
+        position: emitter.position,
+        rate: emitter.rate,
+        velocity: normalizeEmitterVelocity(emitter),
+      },
+      positions: [],
+    }
+  }
+
+  return {
+    emitter: undefined,
+    positions:
+      initialFluid === undefined
+        ? []
+        : buildInitialFluidBlockPositions(initialFluid, {
+            ...simParams,
+            containerSize: [
+              containerSize.width,
+              containerSize.height,
+              containerSize.depth,
+            ],
+          }),
+  }
 }
 
 export function createHelloCube(
@@ -138,16 +190,22 @@ export function createHelloCube(
 
   const particleMaterial = createParticleMaterial()
   let activeContainerSize = initialState.containerSize
+  let activeEmitter = initialState.emitter
   let activeInitialFluid = initialState.initialFluid
   let activeObstacles = initialState.obstacles
   const activeSimParams = initialState.simParams
-  let seedPositions = buildSeedPositions(
+  let simulationSeed = buildSimulationSeed(
     activeContainerSize,
+    activeEmitter,
     activeInitialFluid,
     activeSimParams,
   )
   let particlePreview = createParticleInstances(
-    Math.max(seedPositions.length, 1),
+    Math.max(
+      simulationSeed.positions.length,
+      simulationSeed.emitter?.cap ?? 0,
+      1,
+    ),
     particleMaterial,
   )
   scene.add(particlePreview)
@@ -168,35 +226,40 @@ export function createHelloCube(
   )
   scene.add(obstacleGroup)
 
-  const syncParticlePreviewCapacity = (
-    nextPositions: readonly [number, number, number][],
-  ) => {
-    if (nextPositions.length <= particlePreview.instanceMatrix.count) {
+  const syncParticlePreviewCapacity = (nextSeed: SimulationSeed) => {
+    const requiredCapacity = Math.max(
+      nextSeed.positions.length,
+      nextSeed.emitter?.cap ?? 0,
+    )
+
+    if (requiredCapacity <= particlePreview.instanceMatrix.count) {
       return
     }
 
     scene.remove(particlePreview)
     particlePreview.geometry.dispose()
     particlePreview = createParticleInstances(
-      nextPositions.length,
+      Math.max(requiredCapacity, 1),
       particleMaterial,
     )
     scene.add(particlePreview)
   }
 
   const reinitializeSimulation = () => {
-    seedPositions = buildSeedPositions(
+    simulationSeed = buildSimulationSeed(
       activeContainerSize,
+      activeEmitter,
       activeInitialFluid,
       activeSimParams,
     )
-    syncParticlePreviewCapacity(seedPositions)
+    syncParticlePreviewCapacity(simulationSeed)
     initializeSimulationClient(
       simulationClient,
       activeContainerSize,
       activeObstacles,
+      simulationSeed.emitter,
       activeSimParams,
-      seedPositions,
+      simulationSeed.positions,
     )
   }
 
@@ -211,8 +274,9 @@ export function createHelloCube(
     simulationClient,
     initialState.containerSize,
     initialState.obstacles,
+    simulationSeed.emitter,
     initialState.simParams,
-    seedPositions,
+    simulationSeed.positions,
   )
 
   const axesHelper = new THREE.AxesHelper(1.7)
@@ -274,12 +338,22 @@ export function createHelloCube(
       controls.update()
       reinitializeSimulation()
     },
+    setEmitter: (emitter) => {
+      activeEmitter = emitter
+      if (emitter !== undefined) {
+        activeInitialFluid = undefined
+      }
+      reinitializeSimulation()
+    },
     setHelpersVisible: (showHelpers) => {
       axesHelper.visible = showHelpers
       gridHelper.visible = showHelpers
     },
     setInitialFluid: (initialFluid) => {
       activeInitialFluid = initialFluid
+      if (initialFluid !== undefined) {
+        activeEmitter = undefined
+      }
       reinitializeSimulation()
     },
     setObstacles: (obstacles) => {

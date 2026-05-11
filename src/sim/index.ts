@@ -5,7 +5,11 @@ export const simulationModuleSummary = {
     'SPH kernels, spatial neighbor search, particle buffers, density/pressure computation, force accumulation, semi-implicit integration, and top-level simulation orchestration now live here.',
 }
 
-export { Simulation, type SimulationInit } from './Simulation'
+export {
+  Simulation,
+  type SimulationEmitter,
+  type SimulationInit,
+} from './Simulation'
 export { computeDensityPressure } from './densityPressure'
 export { accumulateForces } from './forces'
 export { buildInitialFluidBlockPositions } from './initialFluid'

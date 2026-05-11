@@ -8,7 +8,15 @@ import {
   type SimParams,
 } from '@/sim/particles'
 
+export interface SimulationEmitter {
+  readonly cap: number
+  readonly position: Vec3
+  readonly rate: number
+  readonly velocity: Vec3
+}
+
 export interface SimulationInit {
+  readonly emitter?: SimulationEmitter
   readonly params?: Partial<SimParams>
   readonly obstacles?: readonly BoxObstacle[]
   readonly positions: readonly Vec3[]
@@ -62,7 +70,26 @@ function buildVelocitySnapshot(
   return cloneVectorList(velocities)
 }
 
+function cloneEmitter(emitter: SimulationEmitter): SimulationEmitter {
+  return {
+    cap: emitter.cap,
+    position: [...emitter.position] as Vec3,
+    rate: emitter.rate,
+    velocity: [...emitter.velocity] as Vec3,
+  }
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max)
+}
+
 export class Simulation {
+  private emissionAccumulator = 0
+
+  private emitter: SimulationEmitter | null = null
+
+  private emittedParticleCount = 0
+
   private initialObstacles: readonly BoxObstacle[] = []
 
   private initialPositions: Vec3[] | null = null
@@ -74,9 +101,9 @@ export class Simulation {
   private particles: ParticleBuffer | null = null
 
   init(config: SimulationInit): void {
-    if (config.positions.length === 0) {
+    if (config.positions.length === 0 && config.emitter === undefined) {
       throw new RangeError(
-        'Simulation requires at least one particle position to initialize.',
+        'Simulation requires at least one particle position or an emitter to initialize.',
       )
     }
 
@@ -86,7 +113,24 @@ export class Simulation {
       positions.length,
       config.velocities,
     )
-    const particles = new ParticleBuffer(positions.length)
+    const emitter = config.emitter ? cloneEmitter(config.emitter) : null
+
+    if (emitter !== null) {
+      if (!Number.isInteger(emitter.cap) || emitter.cap <= 0) {
+        throw new RangeError(
+          'Simulation emitter cap must be a positive integer.',
+        )
+      }
+
+      if (emitter.rate < 0) {
+        throw new RangeError('Simulation emitter rate must be non-negative.')
+      }
+    }
+
+    const particles = new ParticleBuffer(
+      Math.max(positions.length, emitter?.cap ?? 0),
+    )
+    particles.clear()
 
     positions.forEach((position, index) => {
       particles.setPosition(index, position)
@@ -95,8 +139,12 @@ export class Simulation {
       particles.setDensity(index, 0)
       particles.setPressure(index, 0)
     })
+    particles.setActiveCount(positions.length)
 
     this.params = params
+    this.emissionAccumulator = 0
+    this.emittedParticleCount = 0
+    this.emitter = emitter
     this.initialPositions = positions
     this.initialVelocities = velocities
     this.initialObstacles = config.obstacles
@@ -106,8 +154,9 @@ export class Simulation {
   }
 
   get positions(): Float32Array {
+    const particles = assertInitialized(this.particles, 'particle buffer')
     return new Float32Array(
-      assertInitialized(this.particles, 'particle buffer').positions,
+      particles.positions.subarray(0, particles.activeCount * 3),
     )
   }
 
@@ -133,7 +182,13 @@ export class Simulation {
     initialPositions.forEach((position, index) => {
       particles.setPosition(index, position)
       particles.setVelocity(index, initialVelocities[index] ?? [0, 0, 0])
+      particles.setForce(index, [0, 0, 0])
+      particles.setDensity(index, 0)
+      particles.setPressure(index, 0)
     })
+    particles.setActiveCount(initialPositions.length)
+    this.emissionAccumulator = 0
+    this.emittedParticleCount = 0
   }
 
   step(dt: number): void {
@@ -149,6 +204,7 @@ export class Simulation {
       timeStep: dt,
     }
 
+    this.emitParticles(stepParams)
     computeDensityPressure(particles, stepParams)
     accumulateForces(particles, stepParams)
     integrateParticles(particles, stepParams, this.initialObstacles)
@@ -165,5 +221,68 @@ export class Simulation {
   updateObstacles(obstacles: readonly BoxObstacle[]): void {
     assertInitialized(this.particles, 'particle buffer')
     this.initialObstacles = cloneObstacles(obstacles)
+  }
+
+  private emitParticles(params: SimParams): void {
+    const emitter = this.emitter
+    const particles = assertInitialized(this.particles, 'particle buffer')
+
+    if (
+      emitter === null ||
+      emitter.rate === 0 ||
+      particles.activeCount >= emitter.cap
+    ) {
+      return
+    }
+
+    this.emissionAccumulator += emitter.rate * params.timeStep
+    const availableSlots = emitter.cap - particles.activeCount
+    const nextBurstCount = Math.min(
+      Math.floor(this.emissionAccumulator),
+      availableSlots,
+    )
+
+    if (nextBurstCount <= 0) {
+      return
+    }
+
+    for (let index = 0; index < nextBurstCount; index += 1) {
+      const particleIndex = particles.activeCount + index
+      const spawnSerial = this.emittedParticleCount + index
+      const jitterRadius = params.smoothingLength * 0.08
+      const offset = this.resolveEmitterJitter(spawnSerial, jitterRadius)
+      const position: Vec3 = [
+        clamp(emitter.position[0] + offset[0], 0, params.containerSize[0]),
+        clamp(emitter.position[1] + offset[1], 0, params.containerSize[1]),
+        clamp(emitter.position[2] + offset[2], 0, params.containerSize[2]),
+      ]
+
+      particles.setPosition(particleIndex, position)
+      particles.setVelocity(particleIndex, emitter.velocity)
+      particles.setForce(particleIndex, [0, 0, 0])
+      particles.setDensity(particleIndex, 0)
+      particles.setPressure(particleIndex, 0)
+    }
+
+    particles.setActiveCount(particles.activeCount + nextBurstCount)
+    this.emittedParticleCount += nextBurstCount
+    this.emissionAccumulator -= nextBurstCount
+  }
+
+  private resolveEmitterJitter(index: number, radius: number): Vec3 {
+    if (radius <= 0) {
+      return [0, 0, 0]
+    }
+
+    const sample = (seed: number) => {
+      const normalized = Math.sin((index + 1) * seed) * 43758.5453123
+      return (normalized - Math.floor(normalized)) * 2 - 1
+    }
+
+    return [
+      sample(12.9898) * radius,
+      sample(78.233) * radius,
+      sample(39.425) * radius,
+    ]
   }
 }

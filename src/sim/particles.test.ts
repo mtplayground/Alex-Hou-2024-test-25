@@ -22,6 +22,7 @@ describe('ParticleBuffer', () => {
     expect(particles.forces).toBeInstanceOf(Float32Array)
     expect(particles.densities).toBeInstanceOf(Float32Array)
     expect(particles.pressures).toBeInstanceOf(Float32Array)
+    expect(particles.activeCount).toBe(2)
     expect([...particle.position]).toEqual([1, 2, 3])
     expect([...particle.velocity]).toEqual([0.5, -0.25, 0.75])
     expect([...particle.force]).toEqual([3, 2, 1])
@@ -57,6 +58,18 @@ describe('ParticleBuffer', () => {
     expect([...particles.forces]).toEqual([0, 0, 0])
     expect([...particles.densities]).toEqual([0])
     expect([...particles.pressures]).toEqual([0])
+    expect(particles.activeCount).toBe(0)
+  })
+
+  it('tracks an explicit active particle count within buffer capacity', () => {
+    const particles = new ParticleBuffer(3)
+
+    particles.setActiveCount(1)
+    expect(particles.activeCount).toBe(1)
+
+    expect(() => particles.setActiveCount(4)).toThrow(
+      'ParticleBuffer activeCount must be an integer between 0 and 3.',
+    )
   })
 
   it('rejects invalid particle counts and indexes', () => {
