@@ -1,118 +1,155 @@
 # Alex-Hou-2024-test-25
 
-Browser-based fluid playground scaffolded with Vite, React, and TypeScript.
+Interactive browser-based fluid playground built with Vite, React, TypeScript, Three.js, Zustand, and Web Workers.
 
 ## Stack
 
-- Vite
-- React
-- TypeScript
-- Tailwind CSS
-- shadcn/ui
-- Three.js
-- Zustand
-- Vitest
-- Playwright
-- ESLint
-- Prettier
+- Vite + React 19 + TypeScript
+- Three.js for viewport rendering
+- Zustand for editor and viewport state
+- Web Workers for simulation stepping
+- Tailwind CSS + shadcn/ui for the shell
+- Vitest + Playwright for automated coverage
 
-## Development
+## Requirements
 
-Install dependencies and start the dev server:
+- Node.js 20+ recommended
+- npm 10+ recommended
+
+## Setup
 
 ```bash
 npm install
+cp .env.example .env.local
+```
+
+The app reads frontend-only defaults from Vite environment variables:
+
+- `VITE_DEFAULT_PARTICLE_COUNT`
+- `VITE_DEFAULT_EMITTER_RATE`
+- `VITE_DEFAULT_ROTATION_SPEED`
+- `VITE_DEFAULT_SHOW_HELPERS`
+
+## Development
+
+Run the editor locally:
+
+```bash
 npm run dev
 ```
 
-The app is configured to serve on `0.0.0.0:8080`.
+The dev server listens on `0.0.0.0:8080`.
 
-## Quality checks
+## Commands
 
 ```bash
+npm run dev
 npm run lint
 npm run format
 npm run typecheck
+npm run test:unit
+npm run test:e2e
 npm run build
+npm run preview
+npm run serve:dist
+```
+
+- `npm run preview` uses Vite's preview server.
+- `npm run serve:dist` uses a plain Node static server from `scripts/serve-dist.mjs`.
+
+## Workspace Guide
+
+The app opens into a canvas-first workspace shell with a collapsible control rail.
+
+Key features:
+
+- Built-in starter scenes: `Dam break`, `Fountain`, `Drop into pool`
+- Simulation controls: play, pause, step, reset, speed
+- Export tools: PNG frame capture and WebM recording
+- Scene editing: container size, obstacles, fluid source, presets
+- Visualization modes: color by speed, density, or pressure
+- HUD stats: render FPS, simulation step rate, particle count, sim time
+
+Keyboard shortcuts:
+
+- `Space`: play / pause
+- `R`: reset simulation
+
+## Safety Rails
+
+The current build clamps unsafe simulation inputs before they reach the worker:
+
+- particle count caps
+- viscosity and timestep clamping
+- scene import sanitization
+- non-finite particle-state detection
+- user-visible worker error toasts
+
+## Testing
+
+Unit and browser coverage:
+
+```bash
 npm run test:unit
 npm run test:e2e
 ```
 
-## UI, render, and test foundation
+The Playwright suite covers:
 
-- `tailwind.config.js`: Tailwind theme and content scanning
-- `postcss.config.js`: Tailwind + Autoprefixer pipeline
-- `components.json`: shadcn/ui project configuration
-- `src/components/ui`: shared UI primitives
-- `src/lib/utils.ts`: shared `cn` helper for class composition
-- `src/render/lighting.ts`: shared ambient + directional scene lighting
-- `src/render/materials.ts`: shared cube and particle material factories
-- `src/render/threeViewport.ts`: renderer, scene, perspective camera, OrbitControls, resize, and frame loop lifecycle
-- `src/render/helloCube.ts`: Three.js smoke scene lifecycle
-- `src/store/helloCubeStore.ts`: Zustand store for the smoke controls
-- `vitest.config.ts`: unit test configuration
-- `playwright.config.ts`: browser smoke-test configuration
-- `.env.example`: documented frontend defaults
+- happy-path simulation controls
+- preset save/load flow
+- WebM export download flow
 
-## Directory layout
+## Production Build
 
-- `src/sim`: simulation modules
-- `src/render`: rendering modules
-- `src/ui`: UI composition and presentation
-- `src/store`: app state modules
-- `src/workers`: worker entrypoints and message plumbing
-- `e2e`: Playwright smoke tests
+Create the static bundle:
 
-Issue #9 adds shared ambient/directional lighting and a baseline particle material, exercised by an instanced-sphere preview inside the container scene.
+```bash
+npm run build
+```
 
-Issue #10 adds pure SPH smoothing-kernel functions for poly6, spiky gradient, and viscosity laplacian, with fixed-value unit coverage.
+Output is written to `dist/`.
 
-Issue #11 adds a 3D spatial hash grid for insert/query and smoothing-radius neighbor search, with unit coverage for raw bucket queries and filtered neighbor lookup.
+## Verifying `dist/` From A Plain Static Server
 
-Issue #12 adds a structure-of-arrays particle buffer built on `Float32Array` plus a shared `SimParams` baseline for upcoming density, pressure, and integration passes.
+Build first, then serve `dist/` without Vite:
 
-Issue #13 adds the first density-and-pressure computation pass, using poly6 kernel sums over hashed neighbors and writing equation-of-state pressures back into the shared particle buffers.
+```bash
+npm run build
+npm run serve:dist
+```
 
-Issue #14 adds the force-accumulation pass, combining pressure-gradient, viscosity, and gravity contributions into each particle's typed-array force vector.
+The included server:
 
-Issue #15 adds semi-implicit Euler integration plus damped collisions against the axis-aligned simulation container and local obstacle boxes.
+- serves `dist/index.html`
+- serves hashed assets from `dist/assets/`
+- falls back to `index.html` for client-side routes
 
-Issue #16 adds a top-level `Simulation` class that initializes particle state, runs the density/force/integration pipeline per step, exposes position snapshots, and supports deterministic reset behavior.
+This is the same deployment shape expected by static hosts.
 
-Issue #17 adds the worker-side message protocol plus a simulation host that processes control commands and transfers `Float32Array` position frames back to the main thread.
+## Deployment Notes
 
-Issue #18 adds a main-thread `SimulationClient` wrapper that spawns the worker, sends typed control messages, and exposes frame/error/ready subscriptions for incoming worker events.
+Deploy the contents of `dist/` to any static host, including:
 
-Issue #19 connects those worker frames to the Three.js smoke scene, updating instanced particle geometry from transferred position buffers every render cycle.
+- Netlify
+- Cloudflare Pages
+- GitHub Pages
+- S3 + CloudFront
+- any Nginx / Caddy static site setup
 
-Issue #20 adds the first durable scene data model plus a dedicated Zustand store for container dimensions, obstacles, fluid source, and simulation parameters.
+Recommended deployment behavior:
 
-Issue #21 renders scene obstacles in the Three.js smoke test and forwards that obstacle list through the worker boundary so simulation collisions use the same boxes.
+- publish the `dist/` directory only
+- serve `index.html` for unknown application routes
+- cache hashed files in `dist/assets/` aggressively
+- keep `index.html` on a shorter cache policy so new builds roll out cleanly
 
-Issue #22 replaces the hardcoded preview particle seed with deterministic initial-fluid block placement, generating a jittered lattice from the scene definition whenever the simulation initializes or resets.
+## Project Layout
 
-Issue #23 adds continuous emitter mode with a particle cap, worker-side spawning over time, and scene-to-renderer source switching between emitter and initial-block initialization.
-
-Issue #24 reshapes the app into a responsive workspace shell with a top bar, a canvas-first main viewport, and a collapsible side panel for controls.
-
-Issue #25 adds a simulation control bar wired to the worker client, including play, pause, step, reset, speed scaling, and keyboard shortcuts for play/pause and reset.
-
-Issue #26 expands the side panel into a scene editor with container controls, live obstacle add/remove/edit controls, and emitter toggles plus parameter editing.
-
-Issue #27 adds a safe simulation-parameter panel for gravity, viscosity, rest density, and particle budget controls, with clamped ranges to reduce unstable configurations.
-
-Issue #28 adds a live HUD overlay to the Three.js viewport for render FPS, simulation step rate, active particle count, and elapsed simulation time.
-
-Issue #29 adds visualization-mode toggles for speed, density, and pressure, with worker-supplied scalar buffers driving per-instance particle coloring in the viewport.
-
-Issue #30 adds validated scene JSON serialization plus a localStorage-backed preset manager for named create/list/load/delete workflows.
-
-Issue #31 adds a preset-manager UI for saving, loading, deleting, importing, and exporting scene JSON snapshots from the control rail.
-
-Issue #32 adds PNG frame capture for the viewport canvas, with start/stop controls that bundle captured frames into a downloadable zip archive.
-
-Issue #33 adds WebM viewport recording through `canvas.captureStream()` and `MediaRecorder`, with a configurable export framerate in the control bar.
-
-Issue #36 adds three built-in starter scenes, a default first-visit scene load, and lightweight onboarding so the workspace opens with a ready-to-run setup instead of an empty editor state.
-
-Issue #37 adds shared simulation safety rails for parameter clamping, timestep caps, non-finite particle-state detection, and user-visible worker error toasts in the workspace shell.
+- `src/sim`: SPH kernels, particle buffers, integration, safety rails, top-level simulation
+- `src/render`: Three.js viewport, particle rendering, export helpers
+- `src/store`: Zustand stores, built-in scenes, preset serialization
+- `src/ui`: workspace shell and viewport wrapper
+- `src/workers`: worker protocol, host, and client wrapper
+- `e2e`: Playwright browser coverage
+- `scripts/serve-dist.mjs`: plain static server for built output verification

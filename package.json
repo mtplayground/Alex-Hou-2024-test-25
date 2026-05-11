@@ -9,6 +9,7 @@
     "format": "prettier --write .",
     "lint": "eslint . --max-warnings=0",
     "preview": "vite preview --host 0.0.0.0 --port 8080",
+    "serve:dist": "node scripts/serve-dist.mjs",
     "test": "npm run test:unit",
     "test:e2e": "playwright test",
     "test:unit": "vitest run",
