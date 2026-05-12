@@ -1,58 +1,36 @@
-SSFR Architecture Plan (Issues #77-#86)
+SSFR visibility follow-up plan for issues #97-#101
 
-1. Module structure and file organization
-- Keep `src/render` as the rendering boundary, but split the current `helloCube.ts` scene/controller into clearer responsibilities.
-- Issue #77 should remove the leftover smoke-test cube and rename/split the scene orchestration into a neutral module, e.g.:
-  - `src/render/SceneRenderer.ts` or `src/render/fluidScene.ts` for top-level scene orchestration
-  - keep `threeViewport.ts` for renderer/camera/RAF ownership
-  - keep `obstacles.ts`, `lighting.ts`, `materials.ts`, `particles.ts` for reusable scene helpers
-- Add SSFR-specific render modules under `src/render/ssfr/`:
-  - `targets.ts`: render-target creation/disposal
-  - `particleDepthPass.ts`: sphere-impostor depth pass
-  - `particleThicknessPass.ts`: additive thickness pass
-  - `bilateralBlurPass.ts`: separable depth blur
-  - `compositePass.ts`: normal reconstruction + water shading + final composite
-  - `SSFRRenderer.ts`: pass orchestration, resize handling, debug output selection
-  - `shaders/` or inline shader modules for vertex/fragment GLSL strings
-- Extend shared render helpers instead of duplicating scene transforms:
-  - reuse the existing container-centered coordinate convention from `particles.ts` and `obstacles.ts`
-  - keep one source of truth for particle frame data from `SimulationClient`
-- State remains in `src/store` and `src/types`:
-  - extend the scene/render settings in store rather than creating renderer-local config
-  - likely add SSFR params and debug modes to the scene/editor store, not `helloCubeStore`
+Module structure
+- `src/store/viewportStore.ts`
+  Owns `renderMode`, SSFR readiness state, fallback reason, and debug/diagnostic flags. This is the main state boundary for issues #97, #99, and #100.
+- `src/render/ssfr/*`
+  Keep capability probing and failure reporting inside the SSFR pipeline. Add readiness diagnostics to `SSFRRenderer` rather than scattering GL checks through the scene controller.
+- `src/render/playgroundScene.ts`
+  Own the runtime render-path choice. It should read `renderMode` plus SSFR readiness, fall back to particle rendering when needed, and surface the reason back into the store/UI.
+- `src/ui/AppShell.tsx` and `src/ui/SceneViewport.tsx`
+  Own user-visible toggles, disabled states, banners/toasts, and stats presentation. No GL probing logic should live here.
+- `e2e/*.spec.ts`
+  Add a focused first-load visibility regression for issue #101, reusing existing stable UI hooks where possible.
 
-2. Shared types and state shape
-- Introduce shared render-mode types in `src/types/scene.ts` or a render-focused type module:
-  - `RenderMode = 'particles' | 'fluid'`
-  - `SsfrDebugView = 'final' | 'depth' | 'thickness' | 'normal'`
-  - `SsfrParams` with water color, absorption/thickness scale, blur radius, blur iterations, Fresnel exponent, and debug toggles
-- Store should own all user-facing SSFR settings so they are serializable and preset-compatible.
-- Avoid baking SSFR options into the worker protocol unless needed; this is a render-only feature. The worker should continue to emit particle frames, while the main thread chooses how to render them.
+Shared types and state
+- Add a small SSFR diagnostics shape in `viewportStore`, for example:
+  - `renderMode: 'particles' | 'fluid'`
+  - `ssfrReady: boolean`
+  - `ssfrUnavailableReason: string | null`
+  - `ssfrFallbackActive: boolean`
+  - `ssfrCapabilities` for the few user-facing booleans shown in stats
+- Keep raw GL/program error strings inside the renderer, but expose a sanitized reason string to store/UI.
 
-3. Dependency and issue sequencing
-- #77 is the unblocker. Remove the demo cube and decouple the current scene module before adding more render paths.
-- #78 adds the first offscreen pass and establishes particle impostor rendering + depth target plumbing.
-- #79 reuses the impostor geometry path to accumulate thickness.
-- #80 depends on #78 and should operate only on the depth texture produced there.
-- #81 depends on #79 and #80 and should introduce `SSFRRenderer` as the multi-pass orchestrator.
-- #82 should wire store-driven `renderMode` switching between the existing `InstancedMesh` path and the new SSFR pipeline.
-- #83 can then expose SSFR parameters in the UI/store.
-- #84 builds on the SSFR renderer by exposing intermediate render targets for debugging.
-- #85 should test the SSFR renderer at the integration level with fixed particle inputs and pixel assertions.
-- #86 finishes documentation and tunes built-in scenes/camera defaults so the fluid mode looks correct immediately.
+Issue dependencies
+- `#97` should land first because it changes first-load behavior and simplifies the visibility regression target.
+- `#98` defines the readiness API (`isReady()`, `getUnavailableReason()`) that `#99` and `#100` depend on.
+- `#99` should consume `#98` and update the main render branch plus UI/store feedback.
+- `#100` should read the diagnostics already produced by `#98`/`#99` and only extend the stats overlay.
+- `#101` should be last so it can verify the shipped default mode and the SSFR fallback behavior together.
 
-4. Key design decisions
-- Do not change the simulation pipeline for SSFR. Treat SSFR as a pure rendering layer on top of the existing `SimulationClient` frame stream.
-- Preserve the current particle `InstancedMesh` path as a fallback/debug render mode; SSFR should be additive, not a replacement until proven stable.
-- Centralize resize/disposal in `SSFRRenderer` so all render targets and fullscreen resources are recreated consistently with viewport size changes.
-- Keep obstacle boxes, helpers, and container wireframe in the normal scene graph. SSFR should composite fluid with the same camera/depth context so overlays remain correct.
-- Prefer explicit pass objects with `render()`, `resize()`, and `dispose()` methods over one large monolithic renderer file.
-- Reuse the existing scene-store serialization path so SSFR mode/params become preset-safe and survive import/export.
-- Keep debug views first-class in the renderer contract; they will materially reduce iteration cost on issues #81-#85.
-- Tests should favor deterministic fixed particle snapshots and offscreen rendering rather than trying to validate the full simulation numerics again.
-
-5. Risks to watch
-- `helloCube.ts` currently owns too many responsibilities; refactor incrementally in #77 so later issues do not fight file churn.
-- The existing main bundle is already large, so avoid unnecessary duplication of geometry/material/shader setup.
-- Fullscreen pass and offscreen render-target code must stay compatible with Vite/Playwright/headless verification.
-- Store additions should remain backward-compatible with current presets and built-in scenes.
+Key design decisions
+- Default to `particles` for first visit. This reduces blank-screen risk and decouples “is simulation visible?” from “is SSFR available?”.
+- Treat SSFR capability detection as startup/runtime diagnostics, not fatal app initialization. The app should always keep a valid particle render path.
+- Make fallback state explicit in the store so UI, stats, and tests all observe the same source of truth.
+- Prefer one persistent fallback banner/disabled control over repeated transient errors when SSFR is unavailable.
+- Keep the E2E assertion visual and simple: verify the default first-load canvas is visibly non-background after the sim starts, without coupling the test to exact shader output.
