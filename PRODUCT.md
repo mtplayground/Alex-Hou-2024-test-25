@@ -17,7 +17,7 @@ Alex-Hou-2024-test-25 is a browser-based fluid playground: a React/Three.js app 
   - `thickness`
   - `normals`
 - Detects SSFR capability problems at startup and records why SSFR is unavailable.
-- Automatically falls back from `fluid` mode to particle rendering when SSFR is unsupported or a frame-level SSFR render fails, with a visible warning in the UI.
+- Automatically falls back from `fluid` mode to particle rendering when SSFR is unsupported, a frame-level SSFR render fails, or the SSFR pipeline silently produces empty output, with a visible warning in the UI.
 - Lets the user tune fluid appearance live: water color, absorption, thickness scale, Fresnel power, blur radius, and blur iterations.
 - Supports built-in starter scenes: `Dam break`, `Fountain`, and `Drop into pool`, each tuned with a better first-load camera angle.
 - Supports two fluid source modes:
@@ -34,6 +34,7 @@ Alex-Hou-2024-test-25 is a browser-based fluid playground: a React/Three.js app 
 - Frontend-only static app built with Vite, React, and TypeScript.
 - Simulation stays off the main thread in a dedicated worker.
 - Zustand is the state boundary for scene state, viewport state, presets, and rendering controls.
+- The viewport store is versioned and migrated, so older persisted `renderMode: 'fluid'` state is rewritten to the safer default `particles` mode.
 - Three.js owns the viewport, particle path, and SSFR multi-pass pipeline.
 - SSFR is organized as staged passes plus an `SSFRRenderer` orchestrator that also owns capability diagnostics.
 - Built-in scene tuning and first-visit onboarding are driven from local scene metadata, not a backend.
@@ -45,6 +46,7 @@ Alex-Hou-2024-test-25 is a browser-based fluid playground: a React/Three.js app 
 - `npm run serve:dist` is the plain static-host verification path for built output.
 - Coverage is split between Vitest and Playwright.
 - Playwright includes a first-load visibility regression so “blank scene on open” stays caught at the browser level.
+- Playwright also covers SSFR silent-failure fallback and persisted render-mode migration behavior.
 - Keyboard shortcuts:
   - `Space` toggles play/pause
   - `R` resets the simulation
@@ -54,4 +56,5 @@ Alex-Hou-2024-test-25 is a browser-based fluid playground: a React/Three.js app 
 - Unsafe simulation inputs are clamped before they reach the worker.
 - Imported scenes are sanitized before use.
 - Worker and render failures are surfaced to the user instead of failing silently.
+- SSFR silent-output detection is runtime-only for the current page session; reload is the retry boundary once a renderer is marked broken.
 - Persistence is browser-local only through `localStorage`; no backend persistence is merged.
