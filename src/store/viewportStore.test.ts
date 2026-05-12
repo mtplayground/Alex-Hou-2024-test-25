@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { appDefaults } from '@/config/env'
-import { useViewportStore } from '@/store/viewportStore'
+import {
+  migrateViewportPersistedState,
+  useViewportStore,
+  VIEWPORT_PERSIST_VERSION,
+} from '@/store/viewportStore'
 
 afterEach(() => {
   useViewportStore.getState().reset()
@@ -66,5 +70,64 @@ describe('useViewportStore', () => {
     expect(nextState.showHelpers).toBe(appDefaults.showHelpers)
     expect(nextState.ssfrUnavailableReason).toBeNull()
     expect(nextState.visualizationMode).toBe('speed')
+  })
+
+  it('migrates persisted fluid mode to particles while preserving other fields', () => {
+    const migratedState = migrateViewportPersistedState(
+      {
+        cameraPose: {
+          position: [7, 5, 4] as [number, number, number],
+          target: [1, 1.5, 2] as [number, number, number],
+        },
+        containerSize: {
+          depth: 6,
+          height: 4.2,
+          width: 5.8,
+        },
+        renderMode: 'fluid',
+        showHelpers: false,
+        ssfrAppearanceSettings: {
+          absorptionStrength: 2.3,
+          fresnelPower: 5.8,
+          showThicknessDebug: true,
+          thicknessScale: 3.1,
+          waterColor: '#22d3ee',
+        },
+        ssfrBlurSettings: {
+          iterations: 5,
+          radius: 8,
+        },
+        ssfrDebugView: 'thickness',
+        visualizationMode: 'density',
+      },
+      VIEWPORT_PERSIST_VERSION - 1,
+    )
+
+    expect(migratedState).toEqual({
+      cameraPose: {
+        position: [7, 5, 4],
+        target: [1, 1.5, 2],
+      },
+      containerSize: {
+        depth: 6,
+        height: 4.2,
+        width: 5.8,
+      },
+      renderMode: 'particles',
+      showHelpers: false,
+      ssfrAppearanceSettings: {
+        absorptionStrength: 2.3,
+        fresnelPower: 5.8,
+        showThicknessDebug: true,
+        thicknessScale: 3.1,
+        waterColor: '#22d3ee',
+      },
+      ssfrBlurSettings: {
+        iterations: 5,
+        radius: 8,
+      },
+      ssfrDebugView: 'thickness',
+      visualizationMode: 'density',
+    })
   })
 })
