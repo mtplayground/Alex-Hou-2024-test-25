@@ -14,7 +14,7 @@ interface ParticleDepthPassOptions {
   width: number
 }
 
-const PARTICLE_DEPTH_FRAGMENT_SHADER = `
+export const PARTICLE_DEPTH_FRAGMENT_SHADER = `
 uniform float uParticleRadius;
 uniform mat4 uProjectionMatrix;
 
