@@ -323,6 +323,9 @@ function ControlPanelBody({
   )
   const ssfrBlurSettings = useViewportStore((state) => state.ssfrBlurSettings)
   const ssfrDebugView = useViewportStore((state) => state.ssfrDebugView)
+  const ssfrSilentlyBroken = useViewportStore(
+    (state) => state.ssfrSilentlyBroken,
+  )
   const ssfrUnavailableReason = useViewportStore(
     (state) => state.ssfrUnavailableReason,
   )
@@ -358,6 +361,13 @@ function ControlPanelBody({
   })
   const particleCountValue = scene.emitter?.particleCap ?? particleCountDraft
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const fluidModeDisabled = ssfrUnavailableReason !== null || ssfrSilentlyBroken
+  const renderModeHelpText =
+    ssfrUnavailableReason === null
+      ? null
+      : ssfrSilentlyBroken
+        ? `SSFR output is empty in this environment: ${ssfrUnavailableReason}`
+        : `Fluid mode is currently unavailable on this renderer: ${ssfrUnavailableReason}`
   const [showOnboarding, setShowOnboarding] = useState(() => {
     if (typeof window === 'undefined') {
       return false
@@ -1072,7 +1082,9 @@ function ControlPanelBody({
               </span>
               {ssfrFallbackActive && ssfrUnavailableReason ? (
                 <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs leading-5 text-amber-100">
-                  SSFR 不可用，已回退到粒子模式：{ssfrUnavailableReason}
+                  {ssfrSilentlyBroken
+                    ? `SSFR 输出为空，已回退到粒子模式（原因：${ssfrUnavailableReason}）`
+                    : `SSFR 不可用，已回退到粒子模式：${ssfrUnavailableReason}`}
                 </div>
               ) : null}
               <select
@@ -1083,15 +1095,12 @@ function ControlPanelBody({
                     | 'fluid'
                     | 'particles'
 
-                  if (
-                    nextRenderMode === 'fluid' &&
-                    ssfrUnavailableReason !== null
-                  ) {
+                  if (nextRenderMode === 'fluid' && fluidModeDisabled) {
                     return
                   }
 
                   setRenderMode(nextRenderMode)
-                  if (nextRenderMode !== 'fluid') {
+                  if (nextRenderMode !== 'fluid' && !ssfrSilentlyBroken) {
                     setSsfrFallbackActive(false)
                   }
                 }}
@@ -1099,7 +1108,7 @@ function ControlPanelBody({
                 value={renderMode}
               >
                 <option
-                  disabled={ssfrUnavailableReason !== null}
+                  disabled={fluidModeDisabled}
                   title={ssfrUnavailableReason ?? undefined}
                   value="fluid"
                 >
@@ -1156,9 +1165,7 @@ function ControlPanelBody({
               frame, so both render modes update without restarting the
               simulation. The debug view selector swaps the SSFR output between
               the final composite and the intermediate diagnostic textures.
-              {ssfrUnavailableReason
-                ? ` Fluid mode is currently unavailable on this renderer: ${ssfrUnavailableReason}`
-                : ''}
+              {renderModeHelpText ? ` ${renderModeHelpText}` : ''}
             </p>
           </div>
 
