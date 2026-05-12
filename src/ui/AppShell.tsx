@@ -362,12 +362,20 @@ function ControlPanelBody({
   const particleCountValue = scene.emitter?.particleCap ?? particleCountDraft
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const fluidModeDisabled = ssfrUnavailableReason !== null || ssfrSilentlyBroken
+  const renderModeDescriptions = {
+    fluid:
+      'Screen-space fluid rendering with thickness, normals, and water shading.',
+    particles:
+      'Instanced spheres for the most compatible fluid preview and fallback path.',
+  } as const
   const renderModeHelpText =
     ssfrUnavailableReason === null
       ? null
       : ssfrSilentlyBroken
         ? `SSFR output is empty in this environment: ${ssfrUnavailableReason}`
         : `Fluid mode is currently unavailable on this renderer: ${ssfrUnavailableReason}`
+  const renderModeSelectTitle =
+    ssfrUnavailableReason ?? renderModeDescriptions[renderMode]
   const [showOnboarding, setShowOnboarding] = useState(() => {
     if (typeof window === 'undefined') {
       return false
@@ -1104,18 +1112,36 @@ function ControlPanelBody({
                     setSsfrFallbackActive(false)
                   }
                 }}
-                title={ssfrUnavailableReason ?? undefined}
+                title={renderModeSelectTitle}
                 value={renderMode}
               >
                 <option
                   disabled={fluidModeDisabled}
-                  title={ssfrUnavailableReason ?? undefined}
+                  title={
+                    ssfrUnavailableReason ?? renderModeDescriptions.fluid
+                  }
                   value="fluid"
                 >
                   SSFR fluid surface
                 </option>
-                <option value="particles">Instanced particle spheres</option>
+                <option title={renderModeDescriptions.particles} value="particles">
+                  Instanced particle spheres
+                </option>
               </select>
+              <div className="space-y-1 text-xs leading-5 text-slate-400">
+                <p>
+                  <span className="font-medium text-slate-200">
+                    SSFR fluid surface:
+                  </span>{' '}
+                  {renderModeDescriptions.fluid}
+                </p>
+                <p>
+                  <span className="font-medium text-slate-200">
+                    Instanced particle spheres:
+                  </span>{' '}
+                  {renderModeDescriptions.particles}
+                </p>
+              </div>
             </label>
             <label className="space-y-2">
               <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
