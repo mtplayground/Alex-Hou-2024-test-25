@@ -36,6 +36,10 @@
     @apply min-h-screen;
   }
 
+  #root {
+    @apply bg-background;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings:
