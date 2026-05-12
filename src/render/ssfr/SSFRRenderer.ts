@@ -178,7 +178,16 @@ interface SSFRRendererOptions {
   width: number
 }
 
+export interface SSFRRendererDiagnostics {
+  depthTextureSupport: boolean
+  extColorBufferFloat: boolean
+  floatTextureSupport: boolean
+  gpuName: string | null
+  webgl2: boolean
+}
+
 interface SsfrAvailability {
+  diagnostics: SSFRRendererDiagnostics
   reason: string | null
   ready: boolean
 }
@@ -312,6 +321,7 @@ function createCompositeMaterial(
 
 export interface SSFRRenderer {
   dispose: () => void
+  getDiagnostics: () => SSFRRendererDiagnostics
   getUnavailableReason: () => string | null
   isReady: () => boolean
   render: (
@@ -414,25 +424,51 @@ function compileProgram(
 function detectSsfrAvailability(
   renderer: THREE.WebGLRenderer,
 ): SsfrAvailability {
-  if (!renderer.capabilities.isWebGL2) {
-    return {
-      reason: 'SSFR requires WebGL2, but the active renderer is not WebGL2.',
-      ready: false,
-    }
-  }
+  const context = renderer.getContext()
 
-  const gl = renderer.getContext()
-
-  if (!(gl instanceof WebGL2RenderingContext)) {
+  if (!(context instanceof WebGL2RenderingContext)) {
     return {
+      diagnostics: {
+        depthTextureSupport: renderer.capabilities.isWebGL2,
+        extColorBufferFloat: false,
+        floatTextureSupport: renderer.capabilities.isWebGL2,
+        gpuName: null,
+        webgl2: renderer.capabilities.isWebGL2,
+      },
       reason:
         'SSFR requires a WebGL2 rendering context, but the browser returned a different context type.',
       ready: false,
     }
   }
 
-  if (!renderer.extensions.has('EXT_color_buffer_float')) {
+  const gl = context
+  const debugRendererInfo = gl.getExtension('WEBGL_debug_renderer_info')
+  const diagnostics: SSFRRendererDiagnostics = {
+    depthTextureSupport:
+      renderer.capabilities.isWebGL2 ||
+      renderer.extensions.has('WEBGL_depth_texture'),
+    extColorBufferFloat: renderer.extensions.has('EXT_color_buffer_float'),
+    floatTextureSupport:
+      renderer.capabilities.isWebGL2 ||
+      renderer.extensions.has('OES_texture_float'),
+    gpuName:
+      debugRendererInfo === null
+        ? null
+        : gl.getParameter(debugRendererInfo.UNMASKED_RENDERER_WEBGL),
+    webgl2: renderer.capabilities.isWebGL2,
+  }
+
+  if (!renderer.capabilities.isWebGL2) {
     return {
+      diagnostics,
+      reason: 'SSFR requires WebGL2, but the active renderer is not WebGL2.',
+      ready: false,
+    }
+  }
+
+  if (!diagnostics.extColorBufferFloat) {
+    return {
+      diagnostics,
       reason: buildSsfrUnavailableReason(
         'SSFR requires EXT_color_buffer_float for offscreen float render targets.',
         gl,
@@ -441,12 +477,9 @@ function detectSsfrAvailability(
     }
   }
 
-  const hasFloatTextureSupport =
-    renderer.capabilities.isWebGL2 ||
-    renderer.extensions.has('OES_texture_float')
-
-  if (!hasFloatTextureSupport) {
+  if (!diagnostics.floatTextureSupport) {
     return {
+      diagnostics,
       reason: buildSsfrUnavailableReason(
         'SSFR requires float texture support.',
         gl,
@@ -455,12 +488,9 @@ function detectSsfrAvailability(
     }
   }
 
-  const hasDepthTextureSupport =
-    renderer.capabilities.isWebGL2 ||
-    renderer.extensions.has('WEBGL_depth_texture')
-
-  if (!hasDepthTextureSupport) {
+  if (!diagnostics.depthTextureSupport) {
     return {
+      diagnostics,
       reason: buildSsfrUnavailableReason(
         'SSFR requires depth texture support.',
         gl,
@@ -502,6 +532,7 @@ function detectSsfrAvailability(
 
     if (failureReason !== null) {
       return {
+        diagnostics,
         reason: failureReason,
         ready: false,
       }
@@ -509,6 +540,7 @@ function detectSsfrAvailability(
   }
 
   return {
+    diagnostics,
     reason: null,
     ready: true,
   }
@@ -543,6 +575,7 @@ export function createSSFRRenderer({
   if (!availability.ready) {
     return {
       dispose: () => {},
+      getDiagnostics: () => availability.diagnostics,
       getUnavailableReason: () => availability.reason,
       isReady: () => false,
       render: (fallbackRenderer, scene, camera, _particlePreview) => {
@@ -597,6 +630,7 @@ export function createSSFRRenderer({
       compositeQuad.geometry.dispose()
       compositeMaterial.dispose()
     },
+    getDiagnostics: () => availability.diagnostics,
     getUnavailableReason: () => null,
     isReady: () => true,
     render: (renderer, scene, camera, particlePreview) => {
