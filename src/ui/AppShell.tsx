@@ -302,8 +302,14 @@ function ControlPanelBody({
   const showHelpers = useViewportStore((state) => state.showHelpers)
   const renderMode = useViewportStore((state) => state.renderMode)
   const setRenderMode = useViewportStore((state) => state.setRenderMode)
+  const ssfrFallbackActive = useViewportStore(
+    (state) => state.ssfrFallbackActive,
+  )
   const setSsfrAppearanceSettings = useViewportStore(
     (state) => state.setSsfrAppearanceSettings,
+  )
+  const setSsfrFallbackActive = useViewportStore(
+    (state) => state.setSsfrFallbackActive,
   )
   const setSsfrBlurSettings = useViewportStore(
     (state) => state.setSsfrBlurSettings,
@@ -317,6 +323,9 @@ function ControlPanelBody({
   )
   const ssfrBlurSettings = useViewportStore((state) => state.ssfrBlurSettings)
   const ssfrDebugView = useViewportStore((state) => state.ssfrDebugView)
+  const ssfrUnavailableReason = useViewportStore(
+    (state) => state.ssfrUnavailableReason,
+  )
   const toggleHelpers = useViewportStore((state) => state.toggleHelpers)
   const visualizationMode = useViewportStore((state) => state.visualizationMode)
   const reset = useViewportStore((state) => state.reset)
@@ -1061,15 +1070,41 @@ function ControlPanelBody({
               <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                 Render mode
               </span>
+              {ssfrFallbackActive && ssfrUnavailableReason ? (
+                <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs leading-5 text-amber-100">
+                  SSFR 不可用，已回退到粒子模式：{ssfrUnavailableReason}
+                </div>
+              ) : null}
               <select
                 className="flex h-10 w-full rounded-md border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-sky-400/60"
                 data-testid="render-mode-select"
-                onChange={(event) =>
-                  setRenderMode(event.target.value as 'fluid' | 'particles')
-                }
+                onChange={(event) => {
+                  const nextRenderMode = event.target.value as
+                    | 'fluid'
+                    | 'particles'
+
+                  if (
+                    nextRenderMode === 'fluid' &&
+                    ssfrUnavailableReason !== null
+                  ) {
+                    return
+                  }
+
+                  setRenderMode(nextRenderMode)
+                  if (nextRenderMode !== 'fluid') {
+                    setSsfrFallbackActive(false)
+                  }
+                }}
+                title={ssfrUnavailableReason ?? undefined}
                 value={renderMode}
               >
-                <option value="fluid">SSFR fluid surface</option>
+                <option
+                  disabled={ssfrUnavailableReason !== null}
+                  title={ssfrUnavailableReason ?? undefined}
+                  value="fluid"
+                >
+                  SSFR fluid surface
+                </option>
                 <option value="particles">Instanced particle spheres</option>
               </select>
             </label>
@@ -1121,6 +1156,9 @@ function ControlPanelBody({
               frame, so both render modes update without restarting the
               simulation. The debug view selector swaps the SSFR output between
               the final composite and the intermediate diagnostic textures.
+              {ssfrUnavailableReason
+                ? ` Fluid mode is currently unavailable on this renderer: ${ssfrUnavailableReason}`
+                : ''}
             </p>
           </div>
 
@@ -1713,6 +1751,13 @@ export function AppShell() {
   const [simulationToast, setSimulationToast] = useState<string | null>(null)
   const scene = useSceneStore((state) => state.scene)
   const showHelpers = useViewportStore((state) => state.showHelpers)
+  const setRenderMode = useViewportStore((state) => state.setRenderMode)
+  const setSsfrFallbackActive = useViewportStore(
+    (state) => state.setSsfrFallbackActive,
+  )
+  const setSsfrUnavailableReason = useViewportStore(
+    (state) => state.setSsfrUnavailableReason,
+  )
   const hasSimulationController = simulationController !== null
 
   const handleControllerChange = useCallback(
@@ -1734,6 +1779,27 @@ export function AppShell() {
   const handleSimulationError = useCallback((message: string) => {
     setSimulationToast(message)
   }, [])
+
+  const handleSsfrAvailabilityChange = useCallback(
+    (reason: string | null) => {
+      setSsfrUnavailableReason(reason)
+
+      if (reason === null) {
+        setSsfrFallbackActive(false)
+      }
+    },
+    [setSsfrFallbackActive, setSsfrUnavailableReason],
+  )
+
+  const handleSsfrFallback = useCallback(
+    (message: string, reason: string) => {
+      setRenderMode('particles')
+      setSsfrFallbackActive(true)
+      setSsfrUnavailableReason(reason)
+      setSimulationToast(message)
+    },
+    [setRenderMode, setSsfrFallbackActive, setSsfrUnavailableReason],
+  )
 
   const handleStartPngCapture = () => {
     simulationController?.startPngCapture()
@@ -1921,6 +1987,8 @@ export function AppShell() {
                 <SceneViewport
                   onControllerChange={handleControllerChange}
                   onPngCaptureChange={handlePngCaptureChange}
+                  onSsfrAvailabilityChange={handleSsfrAvailabilityChange}
+                  onSsfrFallback={handleSsfrFallback}
                   onSimulationError={handleSimulationError}
                   onSimulationReadyChange={setSimulationRunning}
                   onWebmCaptureChange={handleWebmCaptureChange}

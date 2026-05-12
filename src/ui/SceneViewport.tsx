@@ -20,6 +20,8 @@ import { useSceneStore } from '@/store'
 interface SceneViewportProps {
   onControllerChange?: (controller: PlaygroundSceneController | null) => void
   onPngCaptureChange?: (state: PngCaptureState) => void
+  onSsfrAvailabilityChange?: (reason: string | null) => void
+  onSsfrFallback?: (message: string, reason: string) => void
   onSimulationError?: (message: string) => void
   onSimulationReadyChange?: (running: boolean) => void
   onWebmCaptureChange?: (state: WebmCaptureState) => void
@@ -29,6 +31,8 @@ interface SceneViewportProps {
 export function SceneViewport({
   onControllerChange,
   onPngCaptureChange,
+  onSsfrAvailabilityChange,
+  onSsfrFallback,
   onSimulationError,
   onSimulationReadyChange,
   onWebmCaptureChange,
@@ -83,6 +87,10 @@ export function SceneViewport({
         initialFluid: sceneState.initialFluid,
         obstacles: sceneState.obstacles,
         ...(onPngCaptureChange === undefined ? {} : { onPngCaptureChange }),
+        ...(onSsfrAvailabilityChange === undefined
+          ? {}
+          : { onSsfrAvailabilityChange }),
+        ...(onSsfrFallback === undefined ? {} : { onSsfrFallback }),
         onSimulationError: (message) => {
           onSimulationError?.(message)
         },
@@ -98,6 +106,7 @@ export function SceneViewport({
         showHelpers: initialState.showHelpers,
         visualizationMode: initialState.visualizationMode,
       })
+      onSsfrAvailabilityChange?.(controllerRef.current.getSsfrUnavailableReason())
       onControllerChange?.(controllerRef.current)
     } catch (caughtError) {
       const message =
@@ -119,6 +128,8 @@ export function SceneViewport({
     containerNode,
     onControllerChange,
     onPngCaptureChange,
+    onSsfrAvailabilityChange,
+    onSsfrFallback,
     onSimulationError,
     onSimulationReadyChange,
     onWebmCaptureChange,

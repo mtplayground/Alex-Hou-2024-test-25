@@ -24,6 +24,7 @@ describe('useViewportStore', () => {
       radius: 7,
     })
     useViewportStore.getState().setSsfrDebugView('normals')
+    useViewportStore.getState().setSsfrFallbackActive(true)
     useViewportStore.getState().setSsfrAppearanceSettings({
       absorptionStrength: 1.9,
       fresnelPower: 6.2,
@@ -31,6 +32,9 @@ describe('useViewportStore', () => {
       thicknessScale: 3.4,
       waterColor: '#38bdf8',
     })
+    useViewportStore
+      .getState()
+      .setSsfrUnavailableReason('SSFR unavailable during startup.')
     useViewportStore.getState().toggleHelpers()
 
     useViewportStore.getState().reset()
@@ -46,6 +50,7 @@ describe('useViewportStore', () => {
       target: [2.4, 1.2, 2.3],
     })
     expect(nextState.renderMode).toBe('particles')
+    expect(nextState.ssfrFallbackActive).toBe(false)
     expect(nextState.ssfrAppearanceSettings).toEqual({
       absorptionStrength: 1,
       fresnelPower: 4.5,
@@ -59,6 +64,7 @@ describe('useViewportStore', () => {
     })
     expect(nextState.ssfrDebugView).toBe('final')
     expect(nextState.showHelpers).toBe(appDefaults.showHelpers)
+    expect(nextState.ssfrUnavailableReason).toBeNull()
     expect(nextState.visualizationMode).toBe('speed')
   })
 })
