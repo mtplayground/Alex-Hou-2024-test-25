@@ -79,8 +79,8 @@ Keyboard shortcuts:
 
 The viewport supports two render paths:
 
-- `SSFR fluid surface`: renders particles through the screen-space fluid pipeline
-- `Instanced particle spheres`: renders the legacy particle impostor view
+- `Instanced particle spheres`: the default first-load mode, so a fresh visit shows moving fluid immediately
+- `SSFR fluid surface`: the optional screen-space fluid pipeline you can switch to manually
 
 The SSFR path currently includes:
 

@@ -78,7 +78,7 @@ interface ViewportState {
 export const useViewportStore = create<ViewportState>((set) => ({
   cameraPose: DEFAULT_CAMERA_POSE,
   containerSize: DEFAULT_CONTAINER_SIZE,
-  renderMode: 'fluid',
+  renderMode: 'particles',
   setRenderMode: (renderMode) => set({ renderMode }),
   ssfrAppearanceSettings: DEFAULT_SSFR_APPEARANCE_SETTINGS,
   setSsfrAppearanceSettings: (ssfrAppearanceSettings) =>
@@ -97,7 +97,7 @@ export const useViewportStore = create<ViewportState>((set) => ({
     set({
       cameraPose: DEFAULT_CAMERA_POSE,
       containerSize: DEFAULT_CONTAINER_SIZE,
-      renderMode: 'fluid',
+      renderMode: 'particles',
       ssfrAppearanceSettings: DEFAULT_SSFR_APPEARANCE_SETTINGS,
       ssfrBlurSettings: DEFAULT_SSFR_BLUR_SETTINGS,
       ssfrDebugView: 'final',

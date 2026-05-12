@@ -45,7 +45,7 @@ describe('useViewportStore', () => {
       position: [4.9, 2.8, 6.1],
       target: [2.4, 1.2, 2.3],
     })
-    expect(nextState.renderMode).toBe('fluid')
+    expect(nextState.renderMode).toBe('particles')
     expect(nextState.ssfrAppearanceSettings).toEqual({
       absorptionStrength: 1,
       fresnelPower: 4.5,
