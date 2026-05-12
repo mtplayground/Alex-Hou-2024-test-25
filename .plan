@@ -1,36 +1,39 @@
-SSFR visibility follow-up plan for issues #97-#101
+SSFR silent-failure follow-up plan for issues #107-#111
 
 Module structure
 - `src/store/viewportStore.ts`
-  Owns `renderMode`, SSFR readiness state, fallback reason, and debug/diagnostic flags. This is the main state boundary for issues #97, #99, and #100.
-- `src/render/ssfr/*`
-  Keep capability probing and failure reporting inside the SSFR pipeline. Add readiness diagnostics to `SSFRRenderer` rather than scattering GL checks through the scene controller.
+  Add Zustand `persist` with a shared version constant and migration hook. This store should remain the single source of truth for `renderMode`, SSFR availability, silent-failure reason, and whether `fluid` is temporarily blocked for the current page session.
 - `src/render/playgroundScene.ts`
-  Own the runtime render-path choice. It should read `renderMode` plus SSFR readiness, fall back to particle rendering when needed, and surface the reason back into the store/UI.
+  Keep runtime render-path control here. Add the low-cost framebuffer sampling loop for `fluid` mode, detect repeated empty-output frames, and publish a single silent-failure state transition back to the store/UI.
+- `src/render/ssfr/SSFRRenderer.ts`
+  Keep startup capability diagnostics here. Do not duplicate GL capability checks in the UI; the scene controller should consume `isReady()`, `getUnavailableReason()`, and the existing diagnostics surface.
 - `src/ui/AppShell.tsx` and `src/ui/SceneViewport.tsx`
-  Own user-visible toggles, disabled states, banners/toasts, and stats presentation. No GL probing logic should live here.
+  Own labels, tooltips, banners, and disabled state for the render-mode control plus the existing fallback toast/banner copy.
 - `e2e/*.spec.ts`
-  Add a focused first-load visibility regression for issue #101, reusing existing stable UI hooks where possible.
+  Add a focused regression for silent SSFR failure and a persisted-state migration test, reusing the current canvas sampling helpers and stable test IDs.
 
 Shared types and state
-- Add a small SSFR diagnostics shape in `viewportStore`, for example:
-  - `renderMode: 'particles' | 'fluid'`
-  - `ssfrReady: boolean`
+- Introduce a `VIEWPORT_PERSIST_VERSION` constant near `viewportStore` and route all future persist migrations through it.
+- Keep persisted fields minimal:
+  - `renderMode`
+  - existing viewport/debug preferences
+  - no persisted transient runtime failure flags
+- Treat silent failure as runtime-only state:
   - `ssfrUnavailableReason: string | null`
   - `ssfrFallbackActive: boolean`
-  - `ssfrCapabilities` for the few user-facing booleans shown in stats
-- Keep raw GL/program error strings inside the renderer, but expose a sanitized reason string to store/UI.
+  - optional `ssfrSilentlyBroken: boolean` or equivalent derived flag if it simplifies UI gating
+- Distinguish startup unavailability from runtime empty-output failure in the reason string, but keep both on the same UI/store path.
 
 Issue dependencies
-- `#97` should land first because it changes first-load behavior and simplifies the visibility regression target.
-- `#98` defines the readiness API (`isReady()`, `getUnavailableReason()`) that `#99` and `#100` depend on.
-- `#99` should consume `#98` and update the main render branch plus UI/store feedback.
-- `#100` should read the diagnostics already produced by `#98`/`#99` and only extend the stats overlay.
-- `#101` should be last so it can verify the shipped default mode and the SSFR fallback behavior together.
+- `#107` first: persist versioning and migration baseline for old `renderMode='fluid'` users.
+- `#108` next: add SSFR output sampling and empty-frame detection in the render loop.
+- `#109` then consumes `#108` by converting silent-failure state into a hard particle fallback, banner copy, and disabled `fluid` option.
+- `#110` is a small UI cleanup after the render-mode control behavior is settled.
+- `#111` last: cover both the migration path and the silent-failure fallback path in Playwright.
 
 Key design decisions
-- Default to `particles` for first visit. This reduces blank-screen risk and decouples “is simulation visible?” from “is SSFR available?”.
-- Treat SSFR capability detection as startup/runtime diagnostics, not fatal app initialization. The app should always keep a valid particle render path.
-- Make fallback state explicit in the store so UI, stats, and tests all observe the same source of truth.
-- Prefer one persistent fallback banner/disabled control over repeated transient errors when SSFR is unavailable.
-- Keep the E2E assertion visual and simple: verify the default first-load canvas is visibly non-background after the sim starts, without coupling the test to exact shader output.
+- Persist only durable user intent, not transient renderer health. A broken SSFR session should clear on reload, while the migration should permanently rewrite old persisted `renderMode='fluid'` to `'particles'`.
+- Sample framebuffer output only when `renderMode === 'fluid'` and particles are present. Use a sparse readback cadence plus a consecutive-failure threshold to avoid noise and perf cliffs.
+- Once silent failure is confirmed, force particle rendering for the remainder of the page session. Do not auto-retry SSFR until reload; this avoids oscillation in partially supported environments.
+- Reuse the existing fallback reason/banner pathway so startup capability failures and runtime empty-output failures present consistently to users.
+- Keep the E2E assertions visual and product-level: the app should either show fluid successfully or visibly fall back to particles with an explanatory banner.
