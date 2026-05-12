@@ -29,6 +29,7 @@ describe('useViewportStore', () => {
     })
     useViewportStore.getState().setSsfrDebugView('normals')
     useViewportStore.getState().setSsfrFallbackActive(true)
+    useViewportStore.getState().setSsfrSilentlyBroken(true)
     useViewportStore.getState().setSsfrAppearanceSettings({
       absorptionStrength: 1.9,
       fresnelPower: 6.2,
@@ -55,6 +56,7 @@ describe('useViewportStore', () => {
     })
     expect(nextState.renderMode).toBe('particles')
     expect(nextState.ssfrFallbackActive).toBe(false)
+    expect(nextState.ssfrSilentlyBroken).toBe(false)
     expect(nextState.ssfrAppearanceSettings).toEqual({
       absorptionStrength: 1,
       fresnelPower: 4.5,

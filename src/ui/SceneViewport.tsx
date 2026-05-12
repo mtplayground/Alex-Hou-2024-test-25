@@ -22,6 +22,10 @@ interface SceneViewportProps {
   onPngCaptureChange?: (state: PngCaptureState) => void
   onSsfrAvailabilityChange?: (reason: string | null) => void
   onSsfrFallback?: (message: string, reason: string) => void
+  onSsfrSilentFailureChange?: (
+    silentlyBroken: boolean,
+    reason: string | null,
+  ) => void
   onSimulationError?: (message: string) => void
   onSimulationReadyChange?: (running: boolean) => void
   onWebmCaptureChange?: (state: WebmCaptureState) => void
@@ -33,6 +37,7 @@ export function SceneViewport({
   onPngCaptureChange,
   onSsfrAvailabilityChange,
   onSsfrFallback,
+  onSsfrSilentFailureChange,
   onSimulationError,
   onSimulationReadyChange,
   onWebmCaptureChange,
@@ -101,6 +106,9 @@ export function SceneViewport({
           ? {}
           : { onSsfrAvailabilityChange }),
         ...(onSsfrFallback === undefined ? {} : { onSsfrFallback }),
+        ...(onSsfrSilentFailureChange === undefined
+          ? {}
+          : { onSsfrSilentFailureChange }),
         onSimulationError: (message) => {
           onSimulationError?.(message)
         },
@@ -140,6 +148,7 @@ export function SceneViewport({
     onPngCaptureChange,
     onSsfrAvailabilityChange,
     onSsfrFallback,
+    onSsfrSilentFailureChange,
     onSimulationError,
     onSimulationReadyChange,
     onWebmCaptureChange,

@@ -151,10 +151,12 @@ interface ViewportState {
   ) => void
   setSsfrBlurSettings: (ssfrBlurSettings: SsfrBlurSettings) => void
   setSsfrDebugView: (ssfrDebugView: SsfrDebugView) => void
+  setSsfrSilentlyBroken: (ssfrSilentlyBroken: boolean) => void
   setSsfrUnavailableReason: (ssfrUnavailableReason: string | null) => void
   setVisualizationMode: (visualizationMode: VisualizationMode) => void
   showHelpers: boolean
   ssfrUnavailableReason: string | null
+  ssfrSilentlyBroken: boolean
   setContainerSize: (nextContainerSize: ContainerSize) => void
   setCameraPose: (cameraPose: ViewportCameraPose) => void
   toggleHelpers: () => void
@@ -178,10 +180,12 @@ export const useViewportStore = create<ViewportState>()(
       setSsfrBlurSettings: (ssfrBlurSettings) => set({ ssfrBlurSettings }),
       ssfrDebugView: 'final',
       setSsfrDebugView: (ssfrDebugView) => set({ ssfrDebugView }),
+      setSsfrSilentlyBroken: (ssfrSilentlyBroken) => set({ ssfrSilentlyBroken }),
       setSsfrUnavailableReason: (ssfrUnavailableReason) =>
         set({ ssfrUnavailableReason }),
       setVisualizationMode: (visualizationMode) => set({ visualizationMode }),
       showHelpers: appDefaults.showHelpers,
+      ssfrSilentlyBroken: false,
       ssfrUnavailableReason: null,
       setContainerSize: (nextContainerSize) =>
         set({ containerSize: nextContainerSize }),
@@ -197,6 +201,7 @@ export const useViewportStore = create<ViewportState>()(
           ssfrBlurSettings: DEFAULT_SSFR_BLUR_SETTINGS,
           ssfrDebugView: 'final',
           showHelpers: appDefaults.showHelpers,
+          ssfrSilentlyBroken: false,
           ssfrUnavailableReason: null,
           visualizationMode: 'speed',
         }),

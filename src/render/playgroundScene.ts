@@ -45,6 +45,10 @@ interface PlaygroundSceneState {
   onPngCaptureChange?: (state: PngCaptureState) => void
   onSsfrAvailabilityChange?: (reason: string | null) => void
   onSsfrFallback?: (message: string, reason: string) => void
+  onSsfrSilentFailureChange?: (
+    silentlyBroken: boolean,
+    reason: string | null,
+  ) => void
   onSimulationError?: (message: string) => void
   onSimulationReadyChange: ((running: boolean) => void) | undefined
   onStatsChange?: (stats: PlaygroundSceneStats) => void
@@ -127,6 +131,12 @@ interface WebmCaptureSession {
   recorder: MediaRecorder
   stream: MediaStream
 }
+
+const SSFR_EMPTY_OUTPUT_REASON = 'SSFR pipeline produced empty output'
+const SSFR_EMPTY_OUTPUT_CONSECUTIVE_LIMIT = 3
+const SSFR_EMPTY_OUTPUT_RATIO_THRESHOLD = 0.01
+const SSFR_OUTPUT_SAMPLE_INTERVAL_FRAMES = 30
+const SSFR_OUTPUT_SAMPLE_SIZE = 32
 
 function disposeMaterial(material: THREE.Material | THREE.Material[]) {
   if (Array.isArray(material)) {
@@ -292,6 +302,45 @@ function getSupportedWebmMimeType(): string | null {
   return null
 }
 
+function sampleNonBackgroundPixelRatio(renderer: THREE.WebGLRenderer): number {
+  const gl = renderer.getContext()
+  const sampleWidth = Math.min(SSFR_OUTPUT_SAMPLE_SIZE, gl.drawingBufferWidth)
+  const sampleHeight = Math.min(SSFR_OUTPUT_SAMPLE_SIZE, gl.drawingBufferHeight)
+
+  if (sampleWidth <= 0 || sampleHeight <= 0) {
+    return 0
+  }
+
+  const startX = Math.max(0, Math.floor((gl.drawingBufferWidth - sampleWidth) * 0.5))
+  const startY = Math.max(0, Math.floor((gl.drawingBufferHeight - sampleHeight) * 0.5))
+  const pixels = new Uint8Array(sampleWidth * sampleHeight * 4)
+
+  gl.readPixels(
+    startX,
+    startY,
+    sampleWidth,
+    sampleHeight,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    pixels,
+  )
+
+  let nonBackgroundPixels = 0
+
+  for (let index = 0; index < pixels.length; index += 4) {
+    const red = pixels[index] ?? 0
+    const green = pixels[index + 1] ?? 0
+    const blue = pixels[index + 2] ?? 0
+    const alpha = pixels[index + 3] ?? 0
+
+    if (alpha > 8 || red + green + blue > 12) {
+      nonBackgroundPixels += 1
+    }
+  }
+
+  return nonBackgroundPixels / (sampleWidth * sampleHeight)
+}
+
 export function createPlaygroundScene(
   container: HTMLElement,
   initialState: PlaygroundSceneState,
@@ -348,6 +397,9 @@ export function createPlaygroundScene(
   let webmCaptureSession: WebmCaptureSession | null = null
   let webmStopping = false
   let lastSsfrFallbackReason: string | null = null
+  let ssfrEmptyOutputFailureCount = 0
+  let ssfrOutputSampleFrameCount = 0
+  let ssfrSilentlyBroken = false
   let particlePreview = createParticleInstances(
     Math.max(
       simulationSeed.positions.length,
@@ -388,6 +440,13 @@ export function createPlaygroundScene(
     initialState.onSsfrAvailabilityChange?.(ssfrRenderer.getUnavailableReason())
   }
 
+  const publishSsfrSilentFailure = (
+    silentlyBroken: boolean,
+    reason: string | null,
+  ) => {
+    initialState.onSsfrSilentFailureChange?.(silentlyBroken, reason)
+  }
+
   const renderParticleFallback = (
     renderer: THREE.WebGLRenderer,
     currentScene: THREE.Scene,
@@ -410,6 +469,55 @@ export function createPlaygroundScene(
       `SSFR 不可用，已回退到粒子模式：${reason}`,
       reason,
     )
+  }
+
+  const markSsfrOutputHealthy = () => {
+    ssfrOutputSampleFrameCount = 0
+    ssfrEmptyOutputFailureCount = 0
+  }
+
+  const markSsfrSilentlyBroken = () => {
+    if (ssfrSilentlyBroken) {
+      return
+    }
+
+    ssfrSilentlyBroken = true
+    publishSsfrSilentFailure(true, SSFR_EMPTY_OUTPUT_REASON)
+  }
+
+  const sampleSsfrOutput = (renderer: THREE.WebGLRenderer) => {
+    if (ssfrSilentlyBroken) {
+      return
+    }
+
+    const particleCount =
+      lastFrame === null ? latestStats.particleCount : lastFrame.positions.length / 3
+
+    if (particleCount <= 0) {
+      markSsfrOutputHealthy()
+      return
+    }
+
+    ssfrOutputSampleFrameCount += 1
+
+    if (ssfrOutputSampleFrameCount < SSFR_OUTPUT_SAMPLE_INTERVAL_FRAMES) {
+      return
+    }
+
+    ssfrOutputSampleFrameCount = 0
+    const nonBackgroundRatio = sampleNonBackgroundPixelRatio(renderer)
+
+    if (nonBackgroundRatio < SSFR_EMPTY_OUTPUT_RATIO_THRESHOLD) {
+      ssfrEmptyOutputFailureCount += 1
+
+      if (ssfrEmptyOutputFailureCount >= SSFR_EMPTY_OUTPUT_CONSECUTIVE_LIMIT) {
+        markSsfrSilentlyBroken()
+      }
+
+      return
+    }
+
+    ssfrEmptyOutputFailureCount = 0
   }
 
   const syncParticlePreviewCapacity = (nextSeed: SimulationSeed) => {
@@ -715,6 +823,7 @@ export function createPlaygroundScene(
 
   publishCaptureState()
   publishWebmCaptureState()
+  publishSsfrSilentFailure(false, null)
   viewport.start(
     (deltaSeconds) => {
       if (deltaSeconds > 0) {
@@ -734,6 +843,7 @@ export function createPlaygroundScene(
         const unavailableReason = ssfrRenderer.getUnavailableReason()
 
         if (!ssfrRenderer.isReady()) {
+          markSsfrOutputHealthy()
           applySsfrFallback(
             unavailableReason ?? 'SSFR startup diagnostics reported no reason.',
           )
@@ -741,7 +851,9 @@ export function createPlaygroundScene(
         } else {
           try {
             ssfrRenderer.render(renderer, currentScene, camera, particlePreview)
+            sampleSsfrOutput(renderer)
           } catch (caughtError) {
+            markSsfrOutputHealthy()
             const reason =
               unavailableReason ??
               (caughtError instanceof Error
@@ -752,6 +864,7 @@ export function createPlaygroundScene(
           }
         }
       } else {
+        markSsfrOutputHealthy()
         renderParticleFallback(renderer, currentScene, camera)
       }
       capturePngFrame()
@@ -946,6 +1059,10 @@ export function createPlaygroundScene(
     setRenderMode: (renderMode) => {
       activeRenderMode = renderMode
       lastSsfrFallbackReason = null
+
+      if (renderMode !== 'fluid') {
+        markSsfrOutputHealthy()
+      }
     },
     setSsfrAppearanceSettings: (ssfrAppearanceSettings) => {
       activeSsfrAppearanceSettings = ssfrAppearanceSettings
