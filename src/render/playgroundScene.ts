@@ -337,6 +337,7 @@ export function createPlaygroundScene(
     height: Math.max(container.clientHeight, 1),
     maxParticles: particlePreview.instanceMatrix.count,
     particleRadius,
+    renderer: viewport.renderer,
     width: Math.max(container.clientWidth, 1),
   })
   const obstacleMaterial = new THREE.MeshStandardMaterial({
@@ -380,6 +381,7 @@ export function createPlaygroundScene(
       height: Math.max(container.clientHeight, 1),
       maxParticles: particlePreview.instanceMatrix.count,
       particleRadius,
+      renderer: viewport.renderer,
       width: Math.max(container.clientWidth, 1),
     })
     scene.add(particlePreview)

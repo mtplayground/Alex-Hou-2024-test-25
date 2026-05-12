@@ -14,7 +14,7 @@ interface ParticleThicknessPassOptions {
   width: number
 }
 
-const PARTICLE_THICKNESS_FRAGMENT_SHADER = `
+export const PARTICLE_THICKNESS_FRAGMENT_SHADER = `
 uniform float uParticleRadius;
 
 void main() {

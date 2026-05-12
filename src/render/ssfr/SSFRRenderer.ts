@@ -7,19 +7,24 @@ import type {
 } from '@/store/viewportStore'
 import type { SimulationFrame } from '@/workers/SimulationClient'
 import {
+  BILATERAL_BLUR_FRAGMENT_SHADER,
   createDepthBilateralBlurPass,
+  FULLSCREEN_VERTEX_SHADER,
   type DepthBilateralBlurPass,
 } from './depthBilateralBlurPass'
 import {
   createParticleDepthPass,
+  PARTICLE_DEPTH_FRAGMENT_SHADER,
   type ParticleDepthPass,
 } from './particleDepthPass'
 import {
   createParticleThicknessPass,
+  PARTICLE_THICKNESS_FRAGMENT_SHADER,
   type ParticleThicknessPass,
 } from './particleThicknessPass'
+import { PARTICLE_IMPOSTOR_VERTEX_SHADER } from './particleImpostorShared'
 
-const FULLSCREEN_VERTEX_SHADER = `
+const COMPOSITE_VERTEX_SHADER = `
 varying vec2 vUv;
 
 void main() {
@@ -28,7 +33,7 @@ void main() {
 }
 `
 
-const FLUID_COMPOSITE_FRAGMENT_SHADER = `
+export const FLUID_COMPOSITE_FRAGMENT_SHADER = `
 uniform sampler2D uFluidDepthTexture;
 uniform sampler2D uFluidThicknessTexture;
 uniform float uCameraFar;
@@ -169,7 +174,13 @@ interface SSFRRendererOptions {
   height: number
   maxParticles: number
   particleRadius: number
+  renderer: THREE.WebGLRenderer
   width: number
+}
+
+interface SsfrAvailability {
+  reason: string | null
+  ready: boolean
 }
 
 function getTextureUniform(
@@ -295,12 +306,14 @@ function createCompositeMaterial(
       uThicknessScale: { value: appearanceSettings.thicknessScale },
       uWaterColor: { value: new THREE.Color(appearanceSettings.waterColor) },
     },
-    vertexShader: FULLSCREEN_VERTEX_SHADER,
+    vertexShader: COMPOSITE_VERTEX_SHADER,
   })
 }
 
 export interface SSFRRenderer {
   dispose: () => void
+  getUnavailableReason: () => string | null
+  isReady: () => boolean
   render: (
     renderer: THREE.WebGLRenderer,
     scene: THREE.Scene,
@@ -311,6 +324,194 @@ export interface SSFRRenderer {
   setBlurSettings: (blurSettings: SsfrBlurSettings) => void
   setDebugView: (debugView: SsfrDebugView) => void
   updateFrame: (frame: SimulationFrame, containerSize: ContainerSize) => void
+}
+
+function formatGlError(gl: WebGL2RenderingContext): string {
+  const errorCode = gl.getError()
+
+  if (errorCode === gl.NO_ERROR) {
+    return 'NO_ERROR'
+  }
+
+  return `0x${errorCode.toString(16)}`
+}
+
+function buildSsfrUnavailableReason(
+  message: string,
+  gl: WebGL2RenderingContext,
+  detail?: string | null,
+): string {
+  const parts = [message]
+
+  if (detail !== undefined && detail !== null && detail.trim() !== '') {
+    parts.push(detail.trim())
+  }
+
+  parts.push(`gl.getError()=${formatGlError(gl)}`)
+  return parts.join(' | ')
+}
+
+function compileProgram(
+  gl: WebGL2RenderingContext,
+  label: string,
+  vertexSource: string,
+  fragmentSource: string,
+): string | null {
+  const vertexShader = gl.createShader(gl.VERTEX_SHADER)
+  const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER)
+  const program = gl.createProgram()
+
+  if (vertexShader === null || fragmentShader === null || program === null) {
+    return buildSsfrUnavailableReason(
+      `${label} shader program could not be allocated.`,
+      gl,
+    )
+  }
+
+  try {
+    gl.shaderSource(vertexShader, vertexSource)
+    gl.compileShader(vertexShader)
+
+    if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+      return buildSsfrUnavailableReason(
+        `${label} vertex shader failed to compile.`,
+        gl,
+        gl.getShaderInfoLog(vertexShader),
+      )
+    }
+
+    gl.shaderSource(fragmentShader, fragmentSource)
+    gl.compileShader(fragmentShader)
+
+    if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+      return buildSsfrUnavailableReason(
+        `${label} fragment shader failed to compile.`,
+        gl,
+        gl.getShaderInfoLog(fragmentShader),
+      )
+    }
+
+    gl.attachShader(program, vertexShader)
+    gl.attachShader(program, fragmentShader)
+    gl.linkProgram(program)
+
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      return buildSsfrUnavailableReason(
+        `${label} shader program failed to link.`,
+        gl,
+        gl.getProgramInfoLog(program),
+      )
+    }
+
+    return null
+  } finally {
+    gl.deleteProgram(program)
+    gl.deleteShader(vertexShader)
+    gl.deleteShader(fragmentShader)
+  }
+}
+
+function detectSsfrAvailability(
+  renderer: THREE.WebGLRenderer,
+): SsfrAvailability {
+  if (!renderer.capabilities.isWebGL2) {
+    return {
+      reason: 'SSFR requires WebGL2, but the active renderer is not WebGL2.',
+      ready: false,
+    }
+  }
+
+  const gl = renderer.getContext()
+
+  if (!(gl instanceof WebGL2RenderingContext)) {
+    return {
+      reason:
+        'SSFR requires a WebGL2 rendering context, but the browser returned a different context type.',
+      ready: false,
+    }
+  }
+
+  if (!renderer.extensions.has('EXT_color_buffer_float')) {
+    return {
+      reason: buildSsfrUnavailableReason(
+        'SSFR requires EXT_color_buffer_float for offscreen float render targets.',
+        gl,
+      ),
+      ready: false,
+    }
+  }
+
+  const hasFloatTextureSupport =
+    renderer.capabilities.isWebGL2 ||
+    renderer.extensions.has('OES_texture_float')
+
+  if (!hasFloatTextureSupport) {
+    return {
+      reason: buildSsfrUnavailableReason(
+        'SSFR requires float texture support.',
+        gl,
+      ),
+      ready: false,
+    }
+  }
+
+  const hasDepthTextureSupport =
+    renderer.capabilities.isWebGL2 ||
+    renderer.extensions.has('WEBGL_depth_texture')
+
+  if (!hasDepthTextureSupport) {
+    return {
+      reason: buildSsfrUnavailableReason(
+        'SSFR requires depth texture support.',
+        gl,
+      ),
+      ready: false,
+    }
+  }
+
+  const shaderPrograms = [
+    {
+      fragmentSource: PARTICLE_DEPTH_FRAGMENT_SHADER,
+      label: 'Particle depth pass',
+      vertexSource: PARTICLE_IMPOSTOR_VERTEX_SHADER,
+    },
+    {
+      fragmentSource: PARTICLE_THICKNESS_FRAGMENT_SHADER,
+      label: 'Particle thickness pass',
+      vertexSource: PARTICLE_IMPOSTOR_VERTEX_SHADER,
+    },
+    {
+      fragmentSource: BILATERAL_BLUR_FRAGMENT_SHADER,
+      label: 'Depth bilateral blur pass',
+      vertexSource: FULLSCREEN_VERTEX_SHADER,
+    },
+    {
+      fragmentSource: FLUID_COMPOSITE_FRAGMENT_SHADER,
+      label: 'Fluid composite pass',
+      vertexSource: COMPOSITE_VERTEX_SHADER,
+    },
+  ] as const
+
+  for (const shaderProgram of shaderPrograms) {
+    const failureReason = compileProgram(
+      gl,
+      shaderProgram.label,
+      shaderProgram.vertexSource,
+      shaderProgram.fragmentSource,
+    )
+
+    if (failureReason !== null) {
+      return {
+        reason: failureReason,
+        ready: false,
+      }
+    }
+  }
+
+  return {
+    reason: null,
+    ready: true,
+  }
 }
 
 function debugViewToUniformValue(debugView: SsfrDebugView): number {
@@ -334,8 +535,26 @@ export function createSSFRRenderer({
   height,
   maxParticles,
   particleRadius,
+  renderer,
   width,
 }: SSFRRendererOptions): SSFRRenderer {
+  const availability = detectSsfrAvailability(renderer)
+
+  if (!availability.ready) {
+    return {
+      dispose: () => {},
+      getUnavailableReason: () => availability.reason,
+      isReady: () => false,
+      render: (fallbackRenderer, scene, camera, _particlePreview) => {
+        fallbackRenderer.render(scene, camera)
+      },
+      setAppearanceSettings: () => {},
+      setBlurSettings: () => {},
+      setDebugView: () => {},
+      updateFrame: () => {},
+    }
+  }
+
   const depthPass: ParticleDepthPass = createParticleDepthPass({
     height,
     maxParticles,
@@ -378,6 +597,8 @@ export function createSSFRRenderer({
       compositeQuad.geometry.dispose()
       compositeMaterial.dispose()
     },
+    getUnavailableReason: () => null,
+    isReady: () => true,
     render: (renderer, scene, camera, particlePreview) => {
       renderer.getSize(size)
 

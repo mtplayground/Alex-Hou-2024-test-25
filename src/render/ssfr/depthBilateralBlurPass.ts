@@ -5,7 +5,7 @@ const MAX_BLUR_RADIUS = 8
 const MAX_BLUR_ITERATIONS = 4
 const MAX_BLUR_RADIUS_GLSL = String(MAX_BLUR_RADIUS)
 
-const FULLSCREEN_VERTEX_SHADER = `
+export const FULLSCREEN_VERTEX_SHADER = `
 varying vec2 vUv;
 
 void main() {
@@ -14,7 +14,7 @@ void main() {
 }
 `
 
-const BILATERAL_BLUR_FRAGMENT_SHADER = `
+export const BILATERAL_BLUR_FRAGMENT_SHADER = `
 uniform sampler2D uDepthTexture;
 uniform vec2 uBlurDirection;
 uniform vec2 uTexelSize;
