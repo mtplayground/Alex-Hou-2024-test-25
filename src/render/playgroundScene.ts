@@ -39,6 +39,8 @@ interface PlaygroundSceneState {
   initialFluid: InitialFluidBlock | undefined
   obstacles: SceneObstacle[]
   onPngCaptureChange?: (state: PngCaptureState) => void
+  onSsfrAvailabilityChange?: (reason: string | null) => void
+  onSsfrFallback?: (message: string, reason: string) => void
   onSimulationError?: (message: string) => void
   onSimulationReadyChange: ((running: boolean) => void) | undefined
   onStatsChange?: (stats: PlaygroundSceneStats) => void
@@ -72,6 +74,8 @@ export interface WebmCaptureState {
 
 export interface PlaygroundSceneController {
   dispose: () => void
+  getSsfrUnavailableReason: () => string | null
+  isSsfrReady: () => boolean
   pauseSimulation: () => void
   playSimulation: () => void
   resetSimulation: () => void
@@ -321,6 +325,7 @@ export function createPlaygroundScene(
   let captureStopping = false
   let webmCaptureSession: WebmCaptureSession | null = null
   let webmStopping = false
+  let lastSsfrFallbackReason: string | null = null
   let particlePreview = createParticleInstances(
     Math.max(
       simulationSeed.positions.length,
@@ -357,6 +362,34 @@ export function createPlaygroundScene(
   )
   scene.add(obstacleGroup)
 
+  const publishSsfrAvailability = () => {
+    initialState.onSsfrAvailabilityChange?.(ssfrRenderer.getUnavailableReason())
+  }
+
+  const renderParticleFallback = (
+    renderer: THREE.WebGLRenderer,
+    currentScene: THREE.Scene,
+    camera: THREE.PerspectiveCamera,
+  ) => {
+    particlePreview.visible = true
+    renderer.render(currentScene, camera)
+  }
+
+  const applySsfrFallback = (reason: string) => {
+    activeRenderMode = 'particles'
+    publishSsfrAvailability()
+
+    if (lastSsfrFallbackReason === reason) {
+      return
+    }
+
+    lastSsfrFallbackReason = reason
+    initialState.onSsfrFallback?.(
+      `SSFR 不可用，已回退到粒子模式：${reason}`,
+      reason,
+    )
+  }
+
   const syncParticlePreviewCapacity = (nextSeed: SimulationSeed) => {
     const requiredCapacity = Math.max(
       nextSeed.positions.length,
@@ -389,6 +422,8 @@ export function createPlaygroundScene(
     if (lastFrame) {
       ssfrRenderer.updateFrame(lastFrame, activeContainerSize)
     }
+
+    publishSsfrAvailability()
   }
 
   const reinitializeSimulation = () => {
@@ -638,6 +673,7 @@ export function createPlaygroundScene(
   axesHelper.visible = initialState.showHelpers
   gridHelper.visible = initialState.showHelpers
   scene.add(axesHelper, gridHelper)
+  publishSsfrAvailability()
 
   publishCaptureState()
   publishWebmCaptureState()
@@ -657,10 +693,28 @@ export function createPlaygroundScene(
     },
     (renderer, currentScene, camera) => {
       if (activeRenderMode === 'fluid') {
-        ssfrRenderer.render(renderer, currentScene, camera, particlePreview)
+        const unavailableReason = ssfrRenderer.getUnavailableReason()
+
+        if (!ssfrRenderer.isReady()) {
+          applySsfrFallback(
+            unavailableReason ?? 'SSFR startup diagnostics reported no reason.',
+          )
+          renderParticleFallback(renderer, currentScene, camera)
+        } else {
+          try {
+            ssfrRenderer.render(renderer, currentScene, camera, particlePreview)
+          } catch (caughtError) {
+            const reason =
+              unavailableReason ??
+              (caughtError instanceof Error
+                ? caughtError.message
+                : 'Unknown SSFR render error.')
+            applySsfrFallback(reason)
+            renderParticleFallback(renderer, currentScene, camera)
+          }
+        }
       } else {
-        particlePreview.visible = true
-        renderer.render(currentScene, camera)
+        renderParticleFallback(renderer, currentScene, camera)
       }
       capturePngFrame()
     },
@@ -695,6 +749,8 @@ export function createPlaygroundScene(
       disposeMaterial(obstacleMaterial)
       viewport.dispose()
     },
+    getSsfrUnavailableReason: () => ssfrRenderer.getUnavailableReason(),
+    isSsfrReady: () => ssfrRenderer.isReady(),
     pauseSimulation: () => {
       simulationClient.pause()
     },
@@ -851,6 +907,7 @@ export function createPlaygroundScene(
     },
     setRenderMode: (renderMode) => {
       activeRenderMode = renderMode
+      lastSsfrFallbackReason = null
     },
     setSsfrAppearanceSettings: (ssfrAppearanceSettings) => {
       activeSsfrAppearanceSettings = ssfrAppearanceSettings

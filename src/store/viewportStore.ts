@@ -57,17 +57,21 @@ interface ViewportState {
   cameraPose: ViewportCameraPose
   containerSize: ContainerSize
   renderMode: RenderMode
+  ssfrFallbackActive: boolean
   ssfrAppearanceSettings: SsfrAppearanceSettings
   ssfrBlurSettings: SsfrBlurSettings
   ssfrDebugView: SsfrDebugView
   setRenderMode: (renderMode: RenderMode) => void
+  setSsfrFallbackActive: (ssfrFallbackActive: boolean) => void
   setSsfrAppearanceSettings: (
     ssfrAppearanceSettings: SsfrAppearanceSettings,
   ) => void
   setSsfrBlurSettings: (ssfrBlurSettings: SsfrBlurSettings) => void
   setSsfrDebugView: (ssfrDebugView: SsfrDebugView) => void
+  setSsfrUnavailableReason: (ssfrUnavailableReason: string | null) => void
   setVisualizationMode: (visualizationMode: VisualizationMode) => void
   showHelpers: boolean
+  ssfrUnavailableReason: string | null
   setContainerSize: (nextContainerSize: ContainerSize) => void
   setCameraPose: (cameraPose: ViewportCameraPose) => void
   toggleHelpers: () => void
@@ -80,6 +84,8 @@ export const useViewportStore = create<ViewportState>((set) => ({
   containerSize: DEFAULT_CONTAINER_SIZE,
   renderMode: 'particles',
   setRenderMode: (renderMode) => set({ renderMode }),
+  ssfrFallbackActive: false,
+  setSsfrFallbackActive: (ssfrFallbackActive) => set({ ssfrFallbackActive }),
   ssfrAppearanceSettings: DEFAULT_SSFR_APPEARANCE_SETTINGS,
   setSsfrAppearanceSettings: (ssfrAppearanceSettings) =>
     set({ ssfrAppearanceSettings }),
@@ -87,8 +93,11 @@ export const useViewportStore = create<ViewportState>((set) => ({
   setSsfrBlurSettings: (ssfrBlurSettings) => set({ ssfrBlurSettings }),
   ssfrDebugView: 'final',
   setSsfrDebugView: (ssfrDebugView) => set({ ssfrDebugView }),
+  setSsfrUnavailableReason: (ssfrUnavailableReason) =>
+    set({ ssfrUnavailableReason }),
   setVisualizationMode: (visualizationMode) => set({ visualizationMode }),
   showHelpers: appDefaults.showHelpers,
+  ssfrUnavailableReason: null,
   setContainerSize: (nextContainerSize) =>
     set({ containerSize: nextContainerSize }),
   setCameraPose: (cameraPose) => set({ cameraPose }),
@@ -98,10 +107,12 @@ export const useViewportStore = create<ViewportState>((set) => ({
       cameraPose: DEFAULT_CAMERA_POSE,
       containerSize: DEFAULT_CONTAINER_SIZE,
       renderMode: 'particles',
+      ssfrFallbackActive: false,
       ssfrAppearanceSettings: DEFAULT_SSFR_APPEARANCE_SETTINGS,
       ssfrBlurSettings: DEFAULT_SSFR_BLUR_SETTINGS,
       ssfrDebugView: 'final',
       showHelpers: appDefaults.showHelpers,
+      ssfrUnavailableReason: null,
       visualizationMode: 'speed',
     }),
   visualizationMode: 'speed',
