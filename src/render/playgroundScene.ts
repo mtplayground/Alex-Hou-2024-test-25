@@ -456,7 +456,10 @@ export function createPlaygroundScene(
     renderer.render(currentScene, camera)
   }
 
-  const applySsfrFallback = (reason: string) => {
+  const applySsfrFallback = (
+    reason: string,
+    message = `SSFR 不可用，已回退到粒子模式：${reason}`,
+  ) => {
     activeRenderMode = 'particles'
     publishSsfrAvailability()
 
@@ -465,10 +468,7 @@ export function createPlaygroundScene(
     }
 
     lastSsfrFallbackReason = reason
-    initialState.onSsfrFallback?.(
-      `SSFR 不可用，已回退到粒子模式：${reason}`,
-      reason,
-    )
+    initialState.onSsfrFallback?.(message, reason)
   }
 
   const markSsfrOutputHealthy = () => {
@@ -478,16 +478,17 @@ export function createPlaygroundScene(
 
   const markSsfrSilentlyBroken = () => {
     if (ssfrSilentlyBroken) {
-      return
+      return false
     }
 
     ssfrSilentlyBroken = true
     publishSsfrSilentFailure(true, SSFR_EMPTY_OUTPUT_REASON)
+    return true
   }
 
   const sampleSsfrOutput = (renderer: THREE.WebGLRenderer) => {
     if (ssfrSilentlyBroken) {
-      return
+      return false
     }
 
     const particleCount =
@@ -495,13 +496,13 @@ export function createPlaygroundScene(
 
     if (particleCount <= 0) {
       markSsfrOutputHealthy()
-      return
+      return false
     }
 
     ssfrOutputSampleFrameCount += 1
 
     if (ssfrOutputSampleFrameCount < SSFR_OUTPUT_SAMPLE_INTERVAL_FRAMES) {
-      return
+      return false
     }
 
     ssfrOutputSampleFrameCount = 0
@@ -511,13 +512,14 @@ export function createPlaygroundScene(
       ssfrEmptyOutputFailureCount += 1
 
       if (ssfrEmptyOutputFailureCount >= SSFR_EMPTY_OUTPUT_CONSECUTIVE_LIMIT) {
-        markSsfrSilentlyBroken()
+        return markSsfrSilentlyBroken()
       }
 
-      return
+      return false
     }
 
     ssfrEmptyOutputFailureCount = 0
+    return false
   }
 
   const syncParticlePreviewCapacity = (nextSeed: SimulationSeed) => {
@@ -840,6 +842,16 @@ export function createPlaygroundScene(
     },
     (renderer, currentScene, camera) => {
       if (activeRenderMode === 'fluid') {
+        if (ssfrSilentlyBroken) {
+          applySsfrFallback(
+            SSFR_EMPTY_OUTPUT_REASON,
+            `SSFR 输出为空，已回退到粒子模式（原因：${SSFR_EMPTY_OUTPUT_REASON}）`,
+          )
+          renderParticleFallback(renderer, currentScene, camera)
+          capturePngFrame()
+          return
+        }
+
         const unavailableReason = ssfrRenderer.getUnavailableReason()
 
         if (!ssfrRenderer.isReady()) {
@@ -851,7 +863,13 @@ export function createPlaygroundScene(
         } else {
           try {
             ssfrRenderer.render(renderer, currentScene, camera, particlePreview)
-            sampleSsfrOutput(renderer)
+            if (sampleSsfrOutput(renderer)) {
+              applySsfrFallback(
+                SSFR_EMPTY_OUTPUT_REASON,
+                `SSFR 输出为空，已回退到粒子模式（原因：${SSFR_EMPTY_OUTPUT_REASON}）`,
+              )
+              renderParticleFallback(renderer, currentScene, camera)
+            }
           } catch (caughtError) {
             markSsfrOutputHealthy()
             const reason =
@@ -1057,6 +1075,10 @@ export function createPlaygroundScene(
       )
     },
     setRenderMode: (renderMode) => {
+      if (renderMode === 'fluid' && ssfrSilentlyBroken) {
+        return
+      }
+
       activeRenderMode = renderMode
       lastSsfrFallbackReason = null
 
