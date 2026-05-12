@@ -132,6 +132,10 @@ interface WebmCaptureSession {
   stream: MediaStream
 }
 
+interface PlaygroundSceneTestHooks {
+  forceSsfrEmptyOutput?: boolean
+}
+
 const SSFR_EMPTY_OUTPUT_REASON = 'SSFR pipeline produced empty output'
 const SSFR_EMPTY_OUTPUT_CONSECUTIVE_LIMIT = 3
 const SSFR_EMPTY_OUTPUT_RATIO_THRESHOLD = 0.01
@@ -302,6 +306,22 @@ function getSupportedWebmMimeType(): string | null {
   return null
 }
 
+function getPlaygroundSceneTestHooks(): PlaygroundSceneTestHooks | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const globalWindow = window as typeof window & {
+    __ZEROCLAW_TEST_HOOKS__?: PlaygroundSceneTestHooks
+  }
+
+  return globalWindow.__ZEROCLAW_TEST_HOOKS__ ?? null
+}
+
+function shouldForceSsfrEmptyOutput(): boolean {
+  return getPlaygroundSceneTestHooks()?.forceSsfrEmptyOutput === true
+}
+
 function sampleNonBackgroundPixelRatio(renderer: THREE.WebGLRenderer): number {
   const gl = renderer.getContext()
   const sampleWidth = Math.min(SSFR_OUTPUT_SAMPLE_SIZE, gl.drawingBufferWidth)
@@ -437,7 +457,9 @@ export function createPlaygroundScene(
   scene.add(obstacleGroup)
 
   const publishSsfrAvailability = () => {
-    initialState.onSsfrAvailabilityChange?.(ssfrRenderer.getUnavailableReason())
+    initialState.onSsfrAvailabilityChange?.(
+      shouldForceSsfrEmptyOutput() ? null : ssfrRenderer.getUnavailableReason(),
+    )
   }
 
   const publishSsfrSilentFailure = (
@@ -496,6 +518,16 @@ export function createPlaygroundScene(
 
     if (particleCount <= 0) {
       markSsfrOutputHealthy()
+      return false
+    }
+
+    if (shouldForceSsfrEmptyOutput()) {
+      ssfrEmptyOutputFailureCount += 1
+
+      if (ssfrEmptyOutputFailureCount >= SSFR_EMPTY_OUTPUT_CONSECUTIVE_LIMIT) {
+        return markSsfrSilentlyBroken()
+      }
+
       return false
     }
 
@@ -848,13 +880,14 @@ export function createPlaygroundScene(
             `SSFR 输出为空，已回退到粒子模式（原因：${SSFR_EMPTY_OUTPUT_REASON}）`,
           )
           renderParticleFallback(renderer, currentScene, camera)
-          capturePngFrame()
-          return
-        }
+      capturePngFrame()
+      return
+    }
 
+        const forceEmptyOutput = shouldForceSsfrEmptyOutput()
         const unavailableReason = ssfrRenderer.getUnavailableReason()
 
-        if (!ssfrRenderer.isReady()) {
+        if (!ssfrRenderer.isReady() && !forceEmptyOutput) {
           markSsfrOutputHealthy()
           applySsfrFallback(
             unavailableReason ?? 'SSFR startup diagnostics reported no reason.',
@@ -863,6 +896,11 @@ export function createPlaygroundScene(
         } else {
           try {
             ssfrRenderer.render(renderer, currentScene, camera, particlePreview)
+
+            if (forceEmptyOutput) {
+              renderer.clear(true, true, true)
+            }
+
             if (sampleSsfrOutput(renderer)) {
               applySsfrFallback(
                 SSFR_EMPTY_OUTPUT_REASON,
@@ -918,7 +956,8 @@ export function createPlaygroundScene(
       disposeMaterial(obstacleMaterial)
       viewport.dispose()
     },
-    getSsfrUnavailableReason: () => ssfrRenderer.getUnavailableReason(),
+    getSsfrUnavailableReason: () =>
+      shouldForceSsfrEmptyOutput() ? null : ssfrRenderer.getUnavailableReason(),
     isSsfrReady: () => ssfrRenderer.isReady(),
     pauseSimulation: () => {
       simulationClient.pause()
