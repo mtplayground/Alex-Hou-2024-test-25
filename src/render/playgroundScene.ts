@@ -22,7 +22,11 @@ import {
   createParticleInstances,
   updateParticleInstances,
 } from '@/render/particles'
-import { createSSFRRenderer, type SSFRRenderer } from '@/render/ssfr'
+import {
+  createSSFRRenderer,
+  type SSFRRenderer,
+  type SSFRRendererDiagnostics,
+} from '@/render/ssfr'
 import { createThreeViewport } from '@/render/threeViewport'
 import type {
   InitialFluidBlock,
@@ -56,9 +60,13 @@ interface PlaygroundSceneState {
 }
 
 export interface PlaygroundSceneStats {
+  gpuName: string | null
   particleCount: number
   renderFps: number
+  renderMode: RenderMode
   simTime: number
+  ssfrDiagnostics: SSFRRendererDiagnostics
+  ssfrReady: boolean
   stepRate: number
 }
 
@@ -254,6 +262,16 @@ function downloadBlob(blob: Blob, fileName: string) {
   URL.revokeObjectURL(objectUrl)
 }
 
+function createEmptySsfrDiagnostics(): SSFRRendererDiagnostics {
+  return {
+    depthTextureSupport: false,
+    extColorBufferFloat: false,
+    floatTextureSupport: false,
+    gpuName: null,
+    webgl2: false,
+  }
+}
+
 function getSupportedWebmMimeType(): string | null {
   if (typeof MediaRecorder === 'undefined') {
     return null
@@ -314,9 +332,13 @@ export function createPlaygroundScene(
     activeSimParams,
   )
   let latestStats: PlaygroundSceneStats = {
+    gpuName: null,
     particleCount: simulationSeed.positions.length,
     renderFps: 0,
+    renderMode: initialState.renderMode,
     simTime: 0,
+    ssfrDiagnostics: createEmptySsfrDiagnostics(),
+    ssfrReady: false,
     stepRate: 0,
   }
   let lastStatsPublishAt = 0
@@ -444,8 +466,12 @@ export function createPlaygroundScene(
     )
     latestStats = {
       ...latestStats,
+      gpuName: ssfrRenderer.getDiagnostics().gpuName,
       particleCount: simulationSeed.positions.length,
+      renderMode: activeRenderMode,
       simTime: 0,
+      ssfrDiagnostics: ssfrRenderer.getDiagnostics(),
+      ssfrReady: ssfrRenderer.isReady(),
       stepRate: 0,
     }
     publishStats(true)
@@ -466,6 +492,10 @@ export function createPlaygroundScene(
     lastStatsPublishAt = now
     initialState.onStatsChange?.({
       ...latestStats,
+      gpuName: ssfrRenderer.getDiagnostics().gpuName,
+      renderMode: activeRenderMode,
+      ssfrDiagnostics: ssfrRenderer.getDiagnostics(),
+      ssfrReady: ssfrRenderer.isReady(),
     })
   }
 
@@ -639,7 +669,11 @@ export function createPlaygroundScene(
     ssfrRenderer.updateFrame(frame, activeContainerSize)
     latestStats = {
       ...latestStats,
+      gpuName: ssfrRenderer.getDiagnostics().gpuName,
       particleCount: frame.positions.length / 3,
+      renderMode: activeRenderMode,
+      ssfrDiagnostics: ssfrRenderer.getDiagnostics(),
+      ssfrReady: ssfrRenderer.isReady(),
     }
     publishStats()
   })
@@ -653,8 +687,12 @@ export function createPlaygroundScene(
   const unsubscribeStats = simulationClient.subscribeToStats((stats) => {
     latestStats = {
       ...latestStats,
+      gpuName: ssfrRenderer.getDiagnostics().gpuName,
       particleCount: stats.particleCount,
+      renderMode: activeRenderMode,
       simTime: stats.simTime,
+      ssfrDiagnostics: ssfrRenderer.getDiagnostics(),
+      ssfrReady: ssfrRenderer.isReady(),
       stepRate: stats.stepRate,
     }
     publishStats(true)

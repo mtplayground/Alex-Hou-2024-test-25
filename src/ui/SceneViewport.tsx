@@ -44,9 +44,19 @@ export function SceneViewport({
   const controllerRef = useRef<PlaygroundSceneController | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState<PlaygroundSceneStats>({
+    gpuName: null,
     particleCount: 0,
     renderFps: 0,
+    renderMode: 'particles',
     simTime: 0,
+    ssfrDiagnostics: {
+      depthTextureSupport: false,
+      extColorBufferFloat: false,
+      floatTextureSupport: false,
+      gpuName: null,
+      webgl2: false,
+    },
+    ssfrReady: false,
     stepRate: 0,
   })
   const cameraPose = useViewportStore((state) => state.cameraPose)
@@ -211,7 +221,7 @@ export function SceneViewport({
           data-testid="viewport-stage"
           ref={handleContainerRef}
         >
-          <div className="pointer-events-none absolute left-4 top-4 z-10 grid min-w-[220px] grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-slate-950/70 p-3 text-white shadow-2xl shadow-black/30 backdrop-blur-sm">
+          <div className="pointer-events-none absolute left-4 top-4 z-10 grid min-w-[280px] grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-slate-950/70 p-3 text-white shadow-2xl shadow-black/30 backdrop-blur-sm">
             <StatTile
               label="Render FPS"
               testId="render-fps"
@@ -234,6 +244,28 @@ export function SceneViewport({
               testId="sim-time"
               value={`${stats.simTime.toFixed(2)}s`}
             />
+            <StatTile
+              label="Render Mode"
+              testId="render-mode"
+              value={stats.renderMode}
+            />
+            <StatTile
+              label="SSFR"
+              testId="ssfr-ready"
+              value={stats.ssfrReady ? 'Ready' : 'Unavailable'}
+            />
+            <StatTile
+              className="col-span-2"
+              label="GPU"
+              testId="gpu-name"
+              value={stats.gpuName ?? 'Unavailable'}
+            />
+            <StatTile
+              className="col-span-2"
+              label="Capabilities"
+              testId="ssfr-capabilities"
+              value={`GL2 ${stats.ssfrDiagnostics.webgl2 ? 'Y' : 'N'} · Float ${stats.ssfrDiagnostics.floatTextureSupport ? 'Y' : 'N'} · Depth ${stats.ssfrDiagnostics.depthTextureSupport ? 'Y' : 'N'} · CBF ${stats.ssfrDiagnostics.extColorBufferFloat ? 'Y' : 'N'}`}
+            />
           </div>
         </div>
         {error ? (
@@ -250,16 +282,20 @@ export function SceneViewport({
 }
 
 function StatTile({
+  className,
   label,
   testId,
   value,
 }: {
+  className?: string
   label: string
   testId: string
   value: string
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+    <div
+      className={`rounded-xl border border-white/10 bg-white/5 px-3 py-2 ${className ?? ''}`}
+    >
       <div className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-slate-400">
         {label}
       </div>
