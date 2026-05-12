@@ -1755,6 +1755,9 @@ export function AppShell() {
   const setSsfrFallbackActive = useViewportStore(
     (state) => state.setSsfrFallbackActive,
   )
+  const setSsfrSilentlyBroken = useViewportStore(
+    (state) => state.setSsfrSilentlyBroken,
+  )
   const setSsfrUnavailableReason = useViewportStore(
     (state) => state.setSsfrUnavailableReason,
   )
@@ -1771,9 +1774,10 @@ export function AppShell() {
         setWebmCaptureActive(false)
         setWebmCaptureBusy(false)
         setSimulationRunning(false)
+        setSsfrSilentlyBroken(false)
       }
     },
-    [],
+    [setSsfrSilentlyBroken],
   )
 
   const handleSimulationError = useCallback((message: string) => {
@@ -1789,6 +1793,17 @@ export function AppShell() {
       }
     },
     [setSsfrFallbackActive, setSsfrUnavailableReason],
+  )
+
+  const handleSsfrSilentFailureChange = useCallback(
+    (silentlyBroken: boolean, reason: string | null) => {
+      setSsfrSilentlyBroken(silentlyBroken)
+
+      if (silentlyBroken && reason !== null) {
+        setSsfrUnavailableReason(reason)
+      }
+    },
+    [setSsfrSilentlyBroken, setSsfrUnavailableReason],
   )
 
   const handleSsfrFallback = useCallback(
@@ -1987,9 +2002,10 @@ export function AppShell() {
                 <SceneViewport
                   onControllerChange={handleControllerChange}
                   onPngCaptureChange={handlePngCaptureChange}
-                  onSsfrAvailabilityChange={handleSsfrAvailabilityChange}
-                  onSsfrFallback={handleSsfrFallback}
-                  onSimulationError={handleSimulationError}
+        onSsfrAvailabilityChange={handleSsfrAvailabilityChange}
+        onSsfrFallback={handleSsfrFallback}
+        onSsfrSilentFailureChange={handleSsfrSilentFailureChange}
+        onSimulationError={handleSimulationError}
                   onSimulationReadyChange={setSimulationRunning}
                   onWebmCaptureChange={handleWebmCaptureChange}
                   simulationSpeed={simulationSpeed}
